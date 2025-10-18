@@ -50,10 +50,10 @@ GetVault is a Python tool designed to work with Ansible Vault encrypted CSV file
    pip install -r requirements.txt
    ```
 
-4. Make the script executable (optional):
+4. Make scripts executable (optional):
 
    ```bash
-   chmod +x getvault.py
+   chmod +x getvault.py run_tests.py
    ```
 
 ### Virtual Environment Management
@@ -146,6 +146,60 @@ database_host ~ db.example.com ~ Database server hostname
 api_key ~ abc123def456 ~ Production API key
 ```
 
+## Testing
+
+The project includes a comprehensive test suite using pytest.
+
+### Running Tests
+
+#### Quick Test Run
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Run tests
+python -m pytest tests/ -v
+```
+
+#### Using the Test Runner
+
+```bash
+# Run tests with coverage report
+python run_tests.py
+```
+
+#### Manual pytest Options
+
+```bash
+# Run specific test class
+python -m pytest tests/test_getvault.py::TestLoadVault -v
+
+# Run with coverage
+python -m pytest tests/ --cov=getvault --cov-report=html
+
+# Run tests and stop on first failure
+python -m pytest tests/ -x
+```
+
+### Test Coverage
+
+The test suite covers:
+
+- **Vault loading**: Mock Ansible vault decryption and CSV parsing
+- **Search functionality**: Pattern matching with various edge cases
+- **Error handling**: File not found, decryption errors, invalid data
+- **Edge cases**: Empty files, malformed records, whitespace handling
+- **Integration**: End-to-end workflow testing
+
+### Test Files
+
+- `tests/test_getvault.py` - Main test suite with unit and integration tests
+- `tests/conftest.py` - Shared test fixtures and configuration
+- `tests/__init__.py` - Test package initialization
+- `run_tests.py` - Test runner script with coverage reporting
+- `pytest.ini` - Pytest configuration
+
 ## Error Handling
 
 The script handles several error conditions:
@@ -169,6 +223,12 @@ The script handles several error conditions:
 getvault/
 ├── getvault.py          # Main application script
 ├── requirements.txt     # Python dependencies
+├── run_tests.py         # Test runner script
+├── pytest.ini          # Pytest configuration
+├── tests/              # Test directory
+│   ├── __init__.py     # Test package initialization
+│   ├── conftest.py     # Shared test fixtures and configuration
+│   └── test_getvault.py # Unit test suite
 ├── venv/               # Virtual environment (created during setup)
 └── README.md           # Project documentation
 ```
@@ -192,6 +252,9 @@ For development work, follow the same virtual environment setup:
    ```bash
    # Ensure virtual environment is active
    source venv/bin/activate
+   
+   # Run the test suite
+   python run_tests.py
    
    # Run the script with test data
    python getvault.py -f test_vault.csv
