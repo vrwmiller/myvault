@@ -1,23 +1,23 @@
 # Copilot Instructions
 
 ## Purpose
-This repository contains source code used to evaluate and test GitHub, GitHub Copilot, and OpenAI capabilities for code generation, natural language processing, and AI-assisted development. It is primarily a learning tool and a sandbox for experimenting with AI-driven coding workflows. It's acceptable to increase complexity and add features as needed to explore various use cases.
+This repository contains GetVault, a command-line utility for decrypting and searching through Ansible Vault encrypted CSV files. The tool is designed for secure credential management and data retrieval from tilde-separated vault files. Focus on security best practices, robust error handling, and maintainable code when suggesting improvements or additions.
 
 ## Secrets & configuration
-- Never hard-code API keys or credentials in code or examples.
+- Never hard-code vault passwords or sensitive data in code or examples.
 - Use environment variables for credentials (example names below):
-  - OPENAI_API_KEY
-  - OPENAI_API_BASE (only if using self-hosted/alternate base)
-  - OPENAI_API_TYPE / OPENAI_API_VERSION (if using Azure or special configs)
-- Prefer a single configuration object to hold API-related settings (model, temperature, timeout, max_tokens, streaming flag).
-- Ensure callers can override configuration in a single place (e.g., with a Config dataclass).
+  - VAULT_PASSWORD (required for decrypting Ansible vault files)
+- Handle vault passwords securely - read from environment, never log or store in plaintext.
+- Ensure error messages don't leak sensitive information or vault contents.
+- When working with encrypted data, process in memory without creating temporary files.
 
 ## Project Conventions
 - Python scripts use the `.py` extension and follow a 4 whitespace indentation style.
 - Emojis aren't used in code files, documentation, or comments.
 - Code is commented using docstrings and inline comments where necessary.
 - The project uses a `requirements.txt` file to manage Python dependencies.
-- The main script for user interaction is `askgpt.py`.
+- The main script for user interaction is `getvault.py`.
+- CSV format expected is tilde-separated values: `field1~field2~field3`.
 
 ## Key Workflows
 * Run locally:
@@ -26,23 +26,38 @@ This repository contains source code used to evaluate and test GitHub, GitHub Co
     python3 -m pip install --upgrade pip
     pip3 install -r requirements.txt
     ```
+* Test the application:
+    ```bash
+    source venv/bin/activate
+    python run_tests.py
+    # Or run specific tests
+    python -m pytest tests/ -v
+    ```
+* Use the tool:
+    ```bash
+    export VAULT_PASSWORD="your_vault_password"
+    python getvault.py -f vault_file.csv -s "search_pattern"
+    ```
 
-## Rate limits & token budgeting
-- Always be mindful of model token limits (both prompt and response).
-- Provide utilities to estimate token usage and to truncate/stream content if near budget.
-- Where possible, reuse contexts or compress prompt state rather than resending full history every call.
+## Performance & efficiency
+- Optimize for memory usage when processing large vault files.
+- Use efficient string operations for CSV parsing and pattern matching.
+- Minimize file I/O operations and process data in memory when possible.
+- Consider lazy loading for very large datasets if needed in the future.
 
 ## Security & privacy
-- Never write or store API keys in the repository, logs, or error messages.
-- When logging user content or responses, mask or redact PII before persisting logs.
-- For persisted chat logs, use a configurable retention policy and encryption at rest if applicable.
-- If using third-party hosting or a proxy, clearly document how requests are routed and who can access logs.
+- Never write or store vault passwords in the repository, logs, or error messages.
+- When logging user content or responses, mask or redact sensitive vault data before persisting logs.
+- Ensure decrypted vault contents are only processed in memory and never written to disk.
+- Use secure practices when handling Ansible vault operations and credentials.
+- Validate input data and handle edge cases to prevent security vulnerabilities.
 
 ## Testing & mocks
-- All OpenAI calls must be isolated behind an interface or wrapper so unit tests can mock them.
+- All Ansible vault operations must be isolated behind interfaces so unit tests can mock them.
 - Provide test fixtures for:
-  - Mocked successful responses
-  - Mocked streaming generator responses
-  - Mocked rate-limit / error responses
-- Write integration tests that are opt-in (skip by default) and require a real API key set via CI secrets only when explicitly enabled.
-- Use deterministic seeds for tests that involve randomness (e.g., temperature-based sampling) or mock sampling behavior.
+  - Mocked vault decryption operations
+  - Sample CSV data with various formats and edge cases
+  - Error conditions (file not found, decryption failures, malformed data)
+- Write integration tests that validate the complete workflow without requiring real vault files.
+- Use deterministic test data and mock Ansible vault components to ensure consistent test results.
+- Test edge cases like empty files, invalid CSV formats, and special characters in data.
