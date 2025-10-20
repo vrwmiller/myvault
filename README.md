@@ -34,7 +34,7 @@ GetVault is a Python tool designed to work with Ansible Vault encrypted CSV file
 
    ```bash
    # Create virtual environment
-   python -m venv venv
+   python3 -m venv venv
    
    # Activate virtual environment
    # On macOS/Linux:
@@ -47,7 +47,7 @@ GetVault is a Python tool designed to work with Ansible Vault encrypted CSV file
 3. Install dependencies:
 
    ```bash
-   pip install -r requirements.txt
+   pip3 install -r requirements.txt
    ```
 
 4. Make scripts executable (optional):
@@ -69,7 +69,7 @@ source venv/bin/activate  # macOS/Linux
 # venv\Scripts\activate   # Windows
 
 # Use the tool
-python getvault.py -f your_vault_file.csv
+python3 getvault.py -f your_vault_file.csv
 
 # Deactivate when done (optional)
 deactivate
@@ -88,7 +88,7 @@ export VAULT_PASSWORD="your_vault_password_here"
 ### Command Line Options
 
 ```text
-python getvault.py -f VAULT_FILE [-s SEARCH_PATTERNS] [-i]
+python3 getvault.py -f VAULT_FILE [-s SEARCH_PATTERNS] [-i]
 ```
 
 #### Required Arguments
@@ -105,25 +105,25 @@ python getvault.py -f VAULT_FILE [-s SEARCH_PATTERNS] [-i]
 #### Display all records
 
 ```bash
-python getvault.py -f secrets.vault
+python3 getvault.py -f secrets.vault
 ```
 
 #### Search for a single pattern
 
 ```bash
-python getvault.py -f secrets.vault -s "database"
+python3 getvault.py -f secrets.vault -s "database"
 ```
 
 #### Search for multiple patterns
 
 ```bash
-python getvault.py -f secrets.vault -s "database|api|token"
+python3 getvault.py -f secrets.vault -s "database|api|token"
 ```
 
 #### Case-insensitive search
 
 ```bash
-python getvault.py -f secrets.vault -s "Database" -i
+python3 getvault.py -f secrets.vault -s "Database" -i
 ```
 
 ### Expected File Format
@@ -159,27 +159,27 @@ The project includes a comprehensive test suite using pytest.
 source venv/bin/activate
 
 # Run tests
-python -m pytest tests/ -v
+python3 -m pytest tests/ -v
 ```
 
 #### Using the Test Runner
 
 ```bash
 # Run tests with coverage report
-python run_tests.py
+python3 run_tests.py
 ```
 
 #### Manual pytest Options
 
 ```bash
 # Run specific test class
-python -m pytest tests/test_getvault.py::TestLoadVault -v
+python3 -m pytest tests/test_getvault.py::TestLoadVault -v
 
 # Run with coverage
-python -m pytest tests/ --cov=getvault --cov-report=html
+python3 -m pytest tests/ --cov=getvault --cov-report=html
 
 # Run tests and stop on first failure
-python -m pytest tests/ -x
+python3 -m pytest tests/ -x
 ```
 
 ### Test Coverage
@@ -242,9 +242,9 @@ For development work, follow the same virtual environment setup:
    ```bash
    git clone https://github.com/vrwmiller/getvault.git
    cd getvault
-   python -m venv venv
+   python3 -m venv venv
    source venv/bin/activate  # macOS/Linux
-   pip install -r requirements.txt
+   pip3 install -r requirements.txt
    ```
 
 2. Make your changes and test:
@@ -254,10 +254,10 @@ For development work, follow the same virtual environment setup:
    source venv/bin/activate
    
    # Run the test suite
-   python run_tests.py
+   python3 run_tests.py
    
    # Run the script with test data
-   python getvault.py -f test_vault.csv
+   python3 getvault.py -f test_vault.csv
    ```
 
 ### Code Style
@@ -274,8 +274,8 @@ The project follows Python best practices:
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature-name`
-3. Set up virtual environment: `python -m venv venv && source venv/bin/activate`
-4. Install dependencies: `pip install -r requirements.txt`
+3. Set up virtual environment: `python3 -m venv venv && source venv/bin/activate`
+4. Install dependencies: `pip3 install -r requirements.txt`
 5. Make your changes and add tests if applicable
 6. Commit your changes: `git commit -am 'Add feature'`
 7. Push to the branch: `git push origin feature-name`
