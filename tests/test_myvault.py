@@ -571,7 +571,7 @@ class TestCommandHandlers:
         myvault.handle_delete(args, "password")
         
         captured = capsys.readouterr()
-        assert "Found 2 entries matching expression '*.old'" in captured.out
+        assert "Force mode: Deleting 2 entries matching expression '*.old'" in captured.out
         assert "test1.old" in captured.out
         assert "test2.old" in captured.out
         # Should not prompt for confirmation in force mode
@@ -580,7 +580,7 @@ class TestCommandHandlers:
     
     @patch('myvault.VaultManager')
     @patch('myvault.JSONValidator.validate_file_permissions')
-    @patch('builtins.input', return_value='n')
+    @patch('builtins.input', side_effect=['n', 'n'])  # Skip both entries
     def test_handle_delete_with_expressions_cancelled(self, mock_input, mock_validate, mock_vault_class, capsys):
         """Test delete with expression cancelled by user."""
         mock_vault = MagicMock()
@@ -598,10 +598,60 @@ class TestCommandHandlers:
         myvault.handle_delete(args, "password")
         
         captured = capsys.readouterr()
-        assert "Delete operation cancelled" in captured.out
+        assert "No entries selected for deletion" in captured.out
         # Should not save if cancelled
         mock_vault.save_vault_file.assert_not_called()
     
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('builtins.input', side_effect=['y', 'n', 'y'])  # Select 1st, skip 2nd, confirm final
+    def test_handle_delete_with_expressions_partial_selection(self, mock_input, mock_validate, mock_vault_class, capsys):
+        """Test delete with expression where user selects some entries."""
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = [
+            {"property": "website1.com", "username": "user1"},
+            {"property": "website2.com", "username": "user2"}
+        ]
+        mock_vault_class.return_value = mock_vault
+        
+        args = MagicMock()
+        args.file = "vault.json"
+        args.property = "web*"
+        args.force = False
+        
+        myvault.handle_delete(args, "password")
+        
+        captured = capsys.readouterr()
+        assert "✓ Marked for deletion" in captured.out
+        assert "✗ Skipped" in captured.out
+        assert "Summary: 1 of 2 entries marked for deletion" in captured.out
+        # Should save since user confirmed final deletion
+        mock_vault.save_vault_file.assert_called_once()
+    
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('builtins.input', side_effect=['q'])  # Quit on first entry
+    def test_handle_delete_with_expressions_quit(self, mock_input, mock_validate, mock_vault_class, capsys):
+        """Test delete with expression where user quits early."""
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = [
+            {"property": "website1.com", "username": "user1"},
+            {"property": "website2.com", "username": "user2"}
+        ]
+        mock_vault_class.return_value = mock_vault
+        
+        args = MagicMock()
+        args.file = "vault.json"
+        args.property = "web*"
+        args.force = False
+        
+        myvault.handle_delete(args, "password")
+        
+        captured = capsys.readouterr()
+        assert "Delete operation cancelled" in captured.out
+        # Should not save if user quit
+        mock_vault.save_vault_file.assert_not_called()
+
     @patch('myvault.VaultManager')
     @patch('myvault.JSONValidator.validate_file_permissions')
     def test_handle_delete_expression_no_matches(self, mock_validate, mock_vault_class, capsys):

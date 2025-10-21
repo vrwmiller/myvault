@@ -610,34 +610,76 @@ def handle_delete(args, vault_password: str) -> None:
         print(f"No entries found matching property expression: {args.property}")
         return
     
-    # Show what will be deleted (mask sensitive fields)
-    print(f"Found {len(entries_to_delete)} entries matching expression '{args.property}':")
-    print("=" * 60)
-    
-    for i, (index, entry) in enumerate(entries_to_delete, 1):
-        display_entry = {}
-        for key, value in entry.items():
-            if key.lower() in ['password', 'secret', 'token', 'key', 'apitoken']:
-                display_entry[key] = '***MASKED***'
-            else:
-                display_entry[key] = value
-        
-        print(f"\nEntry {i}:")
-        print(json.dumps(display_entry, indent=2, ensure_ascii=False))
-    
-    print("=" * 60)
-    
-    # Confirmation prompt (unless --force is used)
+    # Show what will be deleted and get individual confirmations
     if not args.force:
-        if len(entries_to_delete) == 1:
-            response = input(f"\nDelete this entry? (y/N): ")
-        else:
-            response = input(f"\nDelete all {len(entries_to_delete)} entries? (y/N): ")
+        confirmed_deletions = []
         
-        if response.lower() not in ['y', 'yes']:
-            logger.info("Delete operation cancelled by user")
+        print(f"Found {len(entries_to_delete)} entries matching expression '{args.property}':")
+        print("=" * 60)
+        
+        for i, (index, entry) in enumerate(entries_to_delete, 1):
+            # Display entry (mask sensitive fields)
+            display_entry = {}
+            for key, value in entry.items():
+                if key.lower() in ['password', 'secret', 'token', 'key', 'apitoken']:
+                    display_entry[key] = '***MASKED***'
+                else:
+                    display_entry[key] = value
+            
+            print(f"\nEntry {i} of {len(entries_to_delete)}:")
+            print(json.dumps(display_entry, indent=2, ensure_ascii=False))
+            print("-" * 40)
+            
+            # Ask for confirmation for this specific entry
+            while True:
+                response = input(f"Delete this entry? (y/n/q to quit): ").lower().strip()
+                if response in ['y', 'yes']:
+                    confirmed_deletions.append((index, entry))
+                    print("✓ Marked for deletion")
+                    break
+                elif response in ['n', 'no']:
+                    print("✗ Skipped")
+                    break
+                elif response in ['q', 'quit']:
+                    print("Delete operation cancelled")
+                    logger.info("Delete operation cancelled by user")
+                    return
+                else:
+                    print("Please enter 'y' (yes), 'n' (no), or 'q' (quit)")
+        
+        print("=" * 60)
+        
+        if not confirmed_deletions:
+            print("No entries selected for deletion")
+            logger.info("No entries selected for deletion")
+            return
+        
+        # Final confirmation summary
+        print(f"\nSummary: {len(confirmed_deletions)} of {len(entries_to_delete)} entries marked for deletion")
+        final_response = input("Proceed with deletion? (y/N): ")
+        if final_response.lower() not in ['y', 'yes']:
+            logger.info("Delete operation cancelled by user at final confirmation")
             print("Delete operation cancelled")
             return
+        
+        entries_to_delete = confirmed_deletions
+    else:
+        # Force mode: show what will be deleted but don't ask for confirmation
+        print(f"Force mode: Deleting {len(entries_to_delete)} entries matching expression '{args.property}':")
+        print("=" * 60)
+        
+        for i, (index, entry) in enumerate(entries_to_delete, 1):
+            display_entry = {}
+            for key, value in entry.items():
+                if key.lower() in ['password', 'secret', 'token', 'key', 'apitoken']:
+                    display_entry[key] = '***MASKED***'
+                else:
+                    display_entry[key] = value
+            
+            print(f"\nEntry {i}:")
+            print(json.dumps(display_entry, indent=2, ensure_ascii=False))
+        
+        print("=" * 60)
     
     # Remove entries (delete in reverse order to maintain indices)
     entries_to_delete.sort(key=lambda x: x[0], reverse=True)
