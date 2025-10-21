@@ -35,15 +35,42 @@ from ansible.constants import DEFAULT_VAULT_ID_MATCH
 from ansible.parsing.vault import VaultSecret, VaultLib
 
 
-# Configure secure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        # Could add file handler here if needed
-    ]
-)
+from ansible.parsing.vault import VaultSecret, VaultLib
+
+
+def setup_logging(debug_mode=False):
+    """Configure logging to file by default, console only in debug mode."""
+    # Clear any existing handlers
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    
+    # Configure handlers
+    handlers = []
+    
+    # Always log to file
+    file_handler = logging.FileHandler('myvault.log', mode='a')
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    ))
+    handlers.append(file_handler)
+    
+    # Add console logging only in debug mode
+    if debug_mode:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        handlers.append(console_handler)
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=handlers,
+        force=True  # Override any existing configuration
+    )
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -232,8 +259,8 @@ Examples:
     # Global options
     parser.add_argument('-f', '--file', 
                        help='Path to encrypted vault file')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                       help='Enable verbose logging')
+    parser.add_argument('-d', '--debug', action='store_true',
+                       help='Enable debug logging to console (logs always written to myvault.log)')
     
     # Subcommands
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -278,8 +305,11 @@ Examples:
         parser.print_help()
         sys.exit(1)
     
-    # Set logging level
-    if args.verbose:
+    # Setup logging based on debug mode
+    setup_logging(debug_mode=args.debug)
+    
+    # Set debug level if requested
+    if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
     
     # Get vault password from environment
