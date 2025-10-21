@@ -1,0 +1,34 @@
+[
+    {
+        "property": "website1.com",
+        "username": "user@domain.com", 
+        "password": "secret123",
+        "apitoken": "abc123def456",
+        "notes": "Primary login for website1"
+    },
+    {
+        "property": "database.server",
+        "username": "dbadmin",
+        "password": "dbpass789",
+        "host": "db.internal.com",
+        "port": "5432",
+        "ssl": true,
+        "notes": "Production database credentials"
+    },
+    {
+        "property": "api.service",
+        "apikey": "key_prod_xyz789",
+        "secret": "secret_abc123",
+        "endpoint": "https://api.service.com/v1",
+        "ratelimit": "1000/hour",
+        "notes": "External API service"
+    },
+    {
+        "property": "ssh.server",
+        "username": "admin",
+        "private_key_path": "/home/user/.ssh/id_rsa",
+        "host": "server.example.com",
+        "port": "22",
+        "notes": "SSH access to production server"
+    }
+]
