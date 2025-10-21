@@ -316,6 +316,7 @@ Examples:
     vault_password = os.environ.get("VAULT_PASSWORD")
     if not vault_password:
         logger.error("VAULT_PASSWORD environment variable not set")
+        print("Error: VAULT_PASSWORD environment variable not set", file=sys.stderr)
         sys.exit(1)
     
     try:
@@ -333,12 +334,15 @@ Examples:
         
     except VaultError as e:
         logger.error(f"Vault operation failed: {e}")
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
+        print("Operation cancelled by user", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
+        print(f"Unexpected error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
