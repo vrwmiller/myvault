@@ -408,19 +408,8 @@ def handle_read(args, vault_password: str) -> None:
         logger.info(f"Results written to: {args.output}")
         print(f"Results written to: {args.output}")
     else:
-        # Output to STDOUT with masked sensitive fields
-        display_data = []
-        for entry in filtered_data:
-            display_entry = {}
-            for key, value in entry.items():
-                # Mask sensitive fields in display
-                if key.lower() in ['password', 'secret', 'token', 'key', 'apitoken']:
-                    display_entry[key] = '***MASKED***'
-                else:
-                    display_entry[key] = value
-            display_data.append(display_entry)
-        
-        print(json.dumps(display_data, indent=2, ensure_ascii=False))
+        # Output to STDOUT - show all values unmasked for read operations
+        print(json.dumps(filtered_data, indent=2, ensure_ascii=False))
 
 
 def handle_create(args, vault_password: str) -> None:

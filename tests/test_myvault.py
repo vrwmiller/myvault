@@ -350,7 +350,7 @@ class TestCommandHandlers:
         
         captured = capsys.readouterr()
         assert "test.com" in captured.out
-        assert "***MASKED***" in captured.out
+        assert "secret" in captured.out  # Passwords should be unmasked in read mode
     
     @patch('myvault.VaultManager')
     def test_handle_read_no_file(self, mock_vault_class):
