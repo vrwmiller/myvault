@@ -1,5 +1,5 @@
 """
-Pytest configuration and shared fixtures for getvault tests.
+Pytest configuration and shared fixtures for myvault tests.
 
 This file contains pytest configuration, shared fixtures, and test utilities
 that can be used across multiple test modules.
