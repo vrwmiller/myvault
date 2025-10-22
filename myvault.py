@@ -442,8 +442,45 @@ def handle_read(args, vault_password: str) -> None:
         logger.info(f"Results written to: {args.output}")
         print(f"Results written to: {args.output}")
     else:
-        # Output to STDOUT - show all values unmasked for read operations
-        print(json.dumps(filtered_data, indent=2, ensure_ascii=False))
+        # Output to STDOUT - show all values unmasked in compact single-line format
+        for entry in filtered_data:
+            # Create a compact single-line representation with logical field ordering
+            parts = []
+            
+            # Always show property value first
+            if 'property' in entry:
+                parts.append(str(entry['property']))
+            
+            # Then username if present
+            if 'username' in entry:
+                parts.append(str(entry['username']))
+            
+            # Then secrets/passwords in common order
+            secret_fields = ['password', 'secret', 'apitoken', 'token', 'key', 'apikey']
+            for field in secret_fields:
+                if field in entry:
+                    value = entry[field]
+                    if value is None:
+                        value = "null"
+                    else:
+                        value = str(value)
+                    parts.append(value)
+            
+            # Finally, add remaining fields in alphabetical order
+            processed_fields = {'property', 'username'} | set(secret_fields)
+            remaining_fields = [k for k in sorted(entry.keys()) if k not in processed_fields]
+            for key in remaining_fields:
+                value = entry[key]
+                # Format boolean and None values nicely
+                if isinstance(value, bool):
+                    value = str(value).lower()
+                elif value is None:
+                    value = "null"
+                else:
+                    value = str(value)
+                parts.append(value)
+            
+            print(" | ".join(parts))
 
 
 def handle_create(args, vault_password: str) -> None:
