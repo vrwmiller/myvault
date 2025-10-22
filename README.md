@@ -215,6 +215,57 @@ python3 myvault.py -f vault.json delete --property "test.*" --force
 python3 myvault.py -f vault.json delete --property "*.old|temp.*"
 ```
 
+### Pipeline and Scripting Usage
+
+MyVault outputs data in a pipe-separated format that's ideal for shell scripting and command pipelines.
+
+#### Output Format
+```
+property | username | password | other_fields...
+```
+
+#### Extract specific fields with text processing tools
+
+```bash
+# Get just the password (3rd field) from a specific property
+python3 myvault.py -f vault.json read --property "website1.com" | cut -d' | ' -f3
+
+# Get password using awk (more reliable with complex data)
+python3 myvault.py -f vault.json read --property "website1.com" | awk -F' \\| ' '{print $3}'
+
+# Get username (2nd field) 
+python3 myvault.py -f vault.json read --property "website1.com" | cut -d' | ' -f2
+```
+
+#### Real-world pipeline examples
+
+```bash
+# Use API token in curl command
+curl -H "Authorization: Bearer $(python3 myvault.py -f vault.json read --property "api.token" | cut -d' | ' -f3)" \
+     https://api.example.com/data
+
+# SSH with password from vault
+sshpass -p "$(python3 myvault.py -f vault.json read --property "server1.ssh" | cut -d' | ' -f3)" \
+         ssh user@server1.com
+
+# Set environment variable from vault
+export DB_PASSWORD=$(python3 myvault.py -f vault.json read --property "database.prod" | awk -F' \\| ' '{print $3}')
+
+# Use in database connection
+mysql -u admin -p"$(python3 myvault.py -f vault.json read --property "mysql.admin" | cut -d' | ' -f3)" mydb
+```
+
+#### Processing JSON output
+
+```bash
+# Output to JSON file for further processing
+python3 myvault.py -f vault.json read --property "web*" -o results.json
+
+# Use jq to process JSON output file
+cat results.json | jq -r '.[0].password'  # Get first entry's password
+cat results.json | jq -r '.[] | select(.property=="website1.com") | .password'
+```
+
 ## Security Features
 
 - **File permissions validation**: Ensures vault files have secure 600 permissions
