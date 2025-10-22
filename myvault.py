@@ -30,6 +30,7 @@ import argparse
 import stat
 import fnmatch
 import getpass
+import hashlib
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 from ansible.constants import DEFAULT_VAULT_ID_MATCH
