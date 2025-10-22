@@ -1,10 +1,10 @@
-# MyVault
+# myvault
 
 A comprehensive JSON-based Ansible Vault secret manager with property-based queries and secure CRUD operations.
 
 ## Overview
 
-MyVault is a sophisticated Python utility for managing Ansible Vault encrypted JSON files. It provides comprehensive CRUD operations for encrypted credential stores with property-based organization and secure password handling.
+myvault is a sophisticated Python utility for managing Ansible Vault encrypted JSON files. It provides comprehensive CRUD operations for encrypted credential stores with property-based organization and secure password handling.
 
 ## Features
 
@@ -79,7 +79,7 @@ deactivate
 
 ### Password Management
 
-MyVault supports flexible password input:
+myvault supports flexible password input:
 
 - **Environment variable** (recommended for automation):
 
@@ -118,7 +118,7 @@ python3 myvault.py [-f VAULT_FILE] [-d] {validate,read,create,update,delete} ...
 
 #### JSON Schema
 
-MyVault uses an extensible JSON schema where each entry requires a `property` field and supports arbitrary additional fields:
+myvault uses an extensible JSON schema where each entry requires a `property` field and supports arbitrary additional fields:
 
 ```json
 [
@@ -217,7 +217,9 @@ python3 myvault.py -f vault.json delete --property "*.old|temp.*"
 
 ### Pipeline and Scripting Usage
 
-MyVault outputs data in a pipe-separated format that's ideal for shell scripting and command pipelines.
+#### Output Format
+
+myvault outputs data in a pipe-separated format that's ideal for shell scripting and command pipelines.
 
 #### Output Format
 ```
