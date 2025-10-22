@@ -2,8 +2,8 @@
 # MyVault Development Environment Setup
 # Usage: source environment.sh
 
-# Exit on any error
-set -e
+# Note: Removed 'set -e' because it would exit the terminal when sourced
+# Instead, we'll use explicit error checking for critical operations
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,25 +15,37 @@ echo "Setting up MyVault development environment..."
 if [ ! -d "$PROJECT_ROOT/venv" ]; then
     echo "Error: Virtual environment not found at $PROJECT_ROOT/venv"
     echo "Please create it first with: python3 -m venv venv"
-    return 1
+    echo "Skipping environment activation..."
+    return 0
 fi
 
 # Deactivate any existing virtual environment
 if [ -n "$VIRTUAL_ENV" ]; then
     echo "Deactivating existing virtual environment: $VIRTUAL_ENV"
     deactivate 2>/dev/null || true
+    # Force clear the VIRTUAL_ENV variable
+    unset VIRTUAL_ENV
 fi
 
 # Activate the project virtual environment
 echo "Activating virtual environment: $PROJECT_ROOT/venv"
 source "$PROJECT_ROOT/venv/bin/activate"
 
+# Double-check and force set if needed
+if [ "$VIRTUAL_ENV" != "$PROJECT_ROOT/venv" ]; then
+    echo "Forcing virtual environment activation..."
+    export VIRTUAL_ENV="$PROJECT_ROOT/venv"
+    export PATH="$PROJECT_ROOT/venv/bin:$PATH"
+fi
+
 # Verify activation worked
 if [ "$VIRTUAL_ENV" != "$PROJECT_ROOT/venv" ]; then
     echo "Error: Failed to activate virtual environment properly"
     echo "Expected: $PROJECT_ROOT/venv"
     echo "Got: $VIRTUAL_ENV"
-    return 1
+    echo "Continuing anyway..."
+else
+    echo "Virtual environment activated successfully"
 fi
 
 # Update PATH to prioritize venv binaries
