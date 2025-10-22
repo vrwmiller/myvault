@@ -51,7 +51,8 @@ For the fastest setup experience, use the provided environment script:
 
 The environment script will automatically:
 - Activate the virtual environment
-- Install all dependencies from `requirements.txt`
+- Install/update all dependencies from `requirements.txt`
+- Set up project environment variables
 - Provide helpful development commands
 - Handle environment conflicts gracefully
 
@@ -141,11 +142,12 @@ bandit -r myvault.py              # Static code security analysis
 # Testing
 python3 run_tests.py             # Run test suite with coverage
 
-# Development
+# Application usage
 python3 myvault.py --help        # Show application help
 ```
 
 These commands are automatically available after running `source environment.sh`.
+Dependencies are installed automatically by the environment script.
 
 ## Usage
 

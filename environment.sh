@@ -55,6 +55,10 @@ export PATH="$PROJECT_ROOT/venv/bin:$PATH"
 export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 export MYVAULT_PROJECT_ROOT="$PROJECT_ROOT"
 
+# Install/update dependencies
+echo "Installing/updating Python dependencies..."
+pip install -r requirements.txt
+
 # Optional: Set default vault password environment variable
 # export VAULT_PASSWORD="your_default_password_here"
 
@@ -67,9 +71,9 @@ echo "Virtual environment: $VIRTUAL_ENV"
 # Display available development commands
 echo ""
 echo "Available development commands:"
-echo "  pip install -r requirements.txt  # Install/update dependencies"
 echo "  python3 myvault.py --help        # Run MyVault"
 echo "  python3 run_tests.py             # Run test suite"
 echo "  bandit -r myvault.py              # Security scan"
 echo ""
+echo "Dependencies are automatically installed/updated by this script."
 echo "Pro tip: Add 'alias myvault=\"python3 \$MYVAULT_PROJECT_ROOT/myvault.py\"' to your shell"
