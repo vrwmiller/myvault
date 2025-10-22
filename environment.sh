@@ -76,4 +76,7 @@ echo "  python3 run_tests.py             # Run test suite"
 echo "  bandit -r myvault.py              # Security scan"
 echo ""
 echo "Dependencies are automatically installed/updated by this script."
-echo "Pro tip: Add 'alias myvault=\"python3 \$MYVAULT_PROJECT_ROOT/myvault.py\"' to your shell"
+
+# Set up myvault alias for convenient usage
+alias myvault="python3 $MYVAULT_PROJECT_ROOT/myvault.py"
+echo "Alias 'myvault' created for convenient usage (active in this session)"
