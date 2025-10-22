@@ -17,9 +17,21 @@ A comprehensive JSON-based Ansible Vault secret manager with property-based quer
    # Create JSON input file
    echo '[{"property": "website1.com", "username": "user@domain.com", "password": "secret123"}]' > secrets.json
    
-   # Create encrypted vault
+   # Create encrypted vault - choose ONE password option:
+   
+   # Option A: Set password via environment variable (recommended for scripts)
+   export VAULT_PASSWORD="your_secure_vault_password"
    python3 myvault.py -f vault.json create -i secrets.json
+   
+   # Option B: Interactive prompt (recommended for manual use)
+   python3 myvault.py -f vault.json create -i secrets.json
+   # Will prompt: "Enter Ansible Vault password: "
+   
+   # Option C: Let environment.sh help set it up (from Step 1)
+   # The environment script can optionally configure vault password for the session
    ```
+
+   **Password Priority**: Options are mutually exclusive - myvault uses environment variable if set, otherwise prompts interactively.
 
 3. **Read from vault**:
    ```bash
