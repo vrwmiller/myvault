@@ -451,13 +451,54 @@ def handle_read(args, vault_password: str) -> None:
             if 'property' in entry:
                 parts.append(str(entry['property']))
             
-            # Then username if present
-            if 'username' in entry:
-                parts.append(str(entry['username']))
+            # Collect and sort username/password pairs by number
+            credential_pairs = []
+            processed_fields = {'property'}
             
-            # Then secrets/passwords in common order
-            secret_fields = ['password', 'secret', 'apitoken', 'token', 'key', 'apikey']
-            for field in secret_fields:
+            # Find all numbered username/password pairs
+            usernames = {}
+            passwords = {}
+            
+            for key in entry.keys():
+                if key.startswith('username'):
+                    if key == 'username':
+                        usernames[0] = key  # Single username gets priority
+                    elif key.startswith('username') and key[8:].isdigit():
+                        num = int(key[8:])
+                        usernames[num] = key
+                elif key.startswith('password'):
+                    if key == 'password':
+                        passwords[0] = key  # Single password gets priority
+                    elif key.startswith('password') and key[8:].isdigit():
+                        num = int(key[8:])
+                        passwords[num] = key
+            
+            # Add credential pairs in numerical order
+            all_nums = sorted(set(usernames.keys()) | set(passwords.keys()))
+            for num in all_nums:
+                if num in usernames:
+                    username_key = usernames[num]
+                    value = entry[username_key]
+                    if value is None:
+                        value = "null"
+                    else:
+                        value = str(value)
+                    parts.append(value)
+                    processed_fields.add(username_key)
+                
+                if num in passwords:
+                    password_key = passwords[num]
+                    value = entry[password_key]
+                    if value is None:
+                        value = "null"
+                    else:
+                        value = str(value)
+                    parts.append(value)
+                    processed_fields.add(password_key)
+            
+            # Then other secret fields
+            other_secret_fields = ['secret', 'apitoken', 'token', 'key', 'apikey']
+            for field in other_secret_fields:
                 if field in entry:
                     value = entry[field]
                     if value is None:
@@ -465,9 +506,9 @@ def handle_read(args, vault_password: str) -> None:
                     else:
                         value = str(value)
                     parts.append(value)
+                    processed_fields.add(field)
             
             # Finally, add remaining fields in alphabetical order
-            processed_fields = {'property', 'username'} | set(secret_fields)
             remaining_fields = [k for k in sorted(entry.keys()) if k not in processed_fields]
             for key in remaining_fields:
                 value = entry[key]
