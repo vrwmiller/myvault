@@ -162,7 +162,8 @@ cython_debug/
 .idea/
 
 # VS Code
-.vscode/
+.vscode/*
+!.vscode/launch.json
 *.code-workspace
 
 # Local configuration files
