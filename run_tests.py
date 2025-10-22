@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test runner script for getvault tests.
+Test runner script for myvault tests.
 
 This script runs the test suite and generates coverage reports.
 """
@@ -11,7 +11,7 @@ import os
 
 def run_tests():
     """Run the test suite with coverage."""
-    print("🧪 Running getvault test suite...")
+    print("🧪 Running myvault test suite...")
     print("=" * 50)
     
     # Basic test run
@@ -30,7 +30,7 @@ def run_tests():
         coverage_result = subprocess.run([
             sys.executable, "-m", "pytest",
             "tests/",
-            "--cov=getvault",
+            "--cov=myvault",
             "--cov-report=term-missing",
             "--cov-report=html"
         ], cwd=os.path.dirname(__file__))

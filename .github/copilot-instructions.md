@@ -1,13 +1,13 @@
 # Copilot Instructions
 
 ## Purpose
-This repository contains GetVault, a command-line utility for decrypting and searching through Ansible Vault encrypted CSV files. The tool is designed for secure credential management and data retrieval from tilde-separated vault files. Focus on security best practices, robust error handling, and maintainable code when suggesting improvements or additions.
+This repository contains MyVault, a JSON-based Ansible Vault secret manager. The tool provides comprehensive CRUD operations for managing encrypted credential stores with property-based queries and secure password handling. Focus on security best practices, robust error handling, and maintainable code when suggesting improvements or additions.
 
 ## Secrets & configuration
 - Never hard-code vault passwords or sensitive data in code or examples.
 - Use environment variables for credentials (example names below):
-  - VAULT_PASSWORD (required for decrypting Ansible vault files)
-- Handle vault passwords securely - read from environment, never log or store in plaintext.
+  - VAULT_PASSWORD (optional for decrypting Ansible vault files - will prompt if not set)
+- Handle vault passwords securely - read from environment or prompt interactively, never log or store in plaintext.
 - Ensure error messages don't leak sensitive information or vault contents.
 - When working with encrypted data, process in memory without creating temporary files.
 
@@ -16,8 +16,8 @@ This repository contains GetVault, a command-line utility for decrypting and sea
 - Emojis aren't used in code files, documentation, or comments.
 - Code is commented using docstrings and inline comments where necessary.
 - The project uses a `requirements.txt` file to manage Python dependencies.
-- The main script for user interaction is `getvault.py`.
-- CSV format expected is tilde-separated values: `field1~field2~field3`.
+- The main script for user interaction is `myvault.py`.
+- JSON format expected for vault contents with "property" field as primary key.
 
 ## Key Workflows
 * Run locally:
@@ -36,15 +36,17 @@ This repository contains GetVault, a command-line utility for decrypting and sea
 * Use the tool:
     ```bash
     export VAULT_PASSWORD="your_vault_password"
-    python getvault.py -f vault_file.csv -s "search_pattern"
+    python myvault.py -f vault_file.json -r --property "search_pattern"
     ```
 
 ## Performance & efficiency
 - Optimize for memory usage when processing large vault files.
-- Use efficient string operations for CSV parsing and pattern matching.
+- Use efficient string operations for JSON parsing and pattern matching.
 - Minimize file I/O operations and process data in memory when possible.
 - Consider lazy loading for very large datasets if needed in the future.
 
+## Security & privacy
+- Never write or store vault passwords in the repository, logs, or error messages.
 ## Security & privacy
 - Never write or store vault passwords in the repository, logs, or error messages.
 - When logging user content or responses, mask or redact sensitive vault data before persisting logs.
