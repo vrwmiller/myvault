@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Enable version updates for pip (Python dependencies)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    # Allow up to 5 open pull requests for pip
+    open-pull-requests-limit: 5
+    # Group dependency updates to reduce PR noise
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+    # Assign PRs to repository owner
+    assignees:
+      - "vrwmiller"
+    # Add useful labels
+    labels:
+      - "dependencies"
+      - "security"
+    # Commit message prefix
+    commit-message:
+      prefix: "deps"
+      include: "scope"
