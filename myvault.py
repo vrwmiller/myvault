@@ -17,7 +17,7 @@ JSON Structure:
 ]
 
 Requirements:
-- VAULT_PASSWORD environment variable must be set
+- VAULT_PASSWORD environment variable (optional - will prompt if not set)
 - Input JSON files must have secure permissions (600)
 - Secrets are never exposed in logs or command line
 """
@@ -29,12 +29,10 @@ import logging
 import argparse
 import stat
 import fnmatch
+import getpass
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 from ansible.constants import DEFAULT_VAULT_ID_MATCH
-from ansible.parsing.vault import VaultSecret, VaultLib
-
-
 from ansible.parsing.vault import VaultSecret, VaultLib
 
 
@@ -312,12 +310,20 @@ Examples:
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
     
-    # Get vault password from environment
+    # Get vault password from environment or prompt user
     vault_password = os.environ.get("VAULT_PASSWORD")
     if not vault_password:
-        logger.error("VAULT_PASSWORD environment variable not set")
-        print("Error: VAULT_PASSWORD environment variable not set", file=sys.stderr)
-        sys.exit(1)
+        try:
+            vault_password = getpass.getpass("Enter Ansible Vault password: ")
+            if not vault_password:
+                print("Error: Vault password cannot be empty", file=sys.stderr)
+                sys.exit(1)
+        except KeyboardInterrupt:
+            print("\nOperation cancelled by user", file=sys.stderr)
+            sys.exit(1)
+        except EOFError:
+            print("\nError: No password input received", file=sys.stderr)
+            sys.exit(1)
     
     try:
         # Route to appropriate command handler
