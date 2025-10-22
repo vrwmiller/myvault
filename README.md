@@ -26,6 +26,39 @@ MyVault is a sophisticated Python utility for managing Ansible Vault encrypted J
 
 ### Setup
 
+#### Quick Setup (Recommended)
+
+For the fastest setup experience, use the provided environment script:
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/vrwmiller/myvault.git
+   cd myvault
+   ```
+
+2. Create virtual environment:
+
+   ```bash
+   python3 -m venv venv
+   ```
+
+3. Set up development environment:
+
+   ```bash
+   source environment.sh
+   ```
+
+The environment script will automatically:
+- Activate the virtual environment
+- Install all dependencies from `requirements.txt`
+- Provide helpful development commands
+- Handle environment conflicts gracefully
+
+#### Manual Setup (Alternative)
+
+If you prefer manual control over the setup process:
+
 1. Clone the repository:
 
    ```bash
@@ -58,7 +91,29 @@ MyVault is a sophisticated Python utility for managing Ansible Vault encrypted J
 
 ### Virtual Environment Management
 
-After initial setup, you'll need to activate the virtual environment each time you use the tool:
+#### Using the Environment Script (Recommended)
+
+After initial setup, simply use the environment script each time you want to work on the project:
+
+```bash
+# Navigate to project directory
+cd myvault
+
+# Activate environment and show available commands
+source environment.sh
+
+# Use the tool
+python3 myvault.py -f your_vault_file.json read
+
+# Deactivate when done (optional)
+deactivate
+```
+
+The environment script provides helpful commands and handles activation robustly.
+
+#### Manual Environment Management
+
+Alternatively, you can manage the virtual environment manually:
 
 ```bash
 # Navigate to project directory
@@ -74,6 +129,23 @@ python3 myvault.py -f your_vault_file.json read
 # Deactivate when done (optional)
 deactivate
 ```
+
+## Development Commands
+
+When using the environment script, you'll see available development commands:
+
+```bash
+# Security scanning
+bandit -r myvault.py              # Static code security analysis
+
+# Testing
+python3 run_tests.py             # Run test suite with coverage
+
+# Development
+python3 myvault.py --help        # Show application help
+```
+
+These commands are automatically available after running `source environment.sh`.
 
 ## Usage
 
