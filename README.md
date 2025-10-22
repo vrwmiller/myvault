@@ -232,13 +232,13 @@ python3 myvault.py -f vault.json delete --property "*.old|temp.*"
 source venv/bin/activate
 
 # Run all tests
-python run_tests.py
+python3 run_tests.py
 
 # Run specific test modules
-python -m pytest tests/test_myvault.py -v
+python3 -m pytest tests/test_myvault.py -v
 
 # Run with coverage
-python -m pytest tests/ --cov=myvault --cov-report=html
+python3 -m pytest tests/ --cov=myvault --cov-report=html
 ```
 
 ### Test Structure
