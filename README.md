@@ -29,8 +29,8 @@ MyVault is a sophisticated Python utility for managing Ansible Vault encrypted J
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/vrwmiller/getvault.git
-   cd getvault
+   git clone https://github.com/vrwmiller/myvault.git
+   cd myvault
    ```
 
 2. Create and activate a virtual environment:
@@ -62,7 +62,7 @@ After initial setup, you'll need to activate the virtual environment each time y
 
 ```bash
 # Navigate to project directory
-cd getvault
+cd myvault
 
 # Activate virtual environment
 source venv/bin/activate  # macOS/Linux
@@ -250,7 +250,7 @@ python -m pytest tests/ --cov=myvault --cov-report=html
 ### Project Structure
 
 ```
-getvault/
+myvault/
 ├── myvault.py          # Main application script
 ├── requirements.txt    # Python dependencies
 ├── run_tests.py       # Test runner

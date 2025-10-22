@@ -1,0 +1,55 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "MyVault: Help",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "myvault.py",
+            "args": ["--help"],
+            "console": "integratedTerminal",
+            "env": {"VAULT_PASSWORD": "test_password"}
+        },
+        {
+            "name": "MyVault: Read All",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "myvault.py",
+            "args": ["-f", "test.vault", "read"],
+            "console": "integratedTerminal",
+            "env": {"VAULT_PASSWORD": "test_password"}
+        },
+        {
+            "name": "MyVault: Read Property",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "myvault.py",
+            "args": ["-f", "test.vault", "read", "--property", "example.com"],
+            "console": "integratedTerminal",
+            "env": {"VAULT_PASSWORD": "test_password"}
+        },
+        {
+            "name": "MyVault: Interactive Password",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "myvault.py",
+            "args": ["-f", "test.vault", "read"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run_tests.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug Specific Test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["tests/test_myvault.py::TestVaultManager", "-v"],
+            "console": "integratedTerminal"
+        }
+    ]
+}
