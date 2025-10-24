@@ -39,6 +39,18 @@ This repository contains MyVault, a JSON-based Ansible Vault secret manager. The
     python myvault.py -f vault_file.json -r --property "search_pattern"
     ```
 
+## GitHub CLI Issue Creation
+- When creating GitHub issues with the `gh issue create` command, always use the `--body-file` option to provide the issue body.
+- This prevents shell quoting errors and ensures multi-line, formatted, or code block content is handled correctly.
+- Example workflow:
+  1. Write your issue body to a file, e.g. `issue.txt`.
+  2. Run:
+    ```bash
+    gh issue create --title "Your Issue Title" --body-file issue.txt
+    ```
+- Do not paste multi-line issue bodies directly into the shell, as this can cause quoting errors and accidental command execution.
+- This rule applies to both manual and automated workflows.
+
 ## Performance & efficiency
 - Optimize for memory usage when processing large vault files.
 - Use efficient string operations for JSON parsing and pattern matching.
