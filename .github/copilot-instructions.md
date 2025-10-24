@@ -12,12 +12,43 @@ This repository contains MyVault, a JSON-based Ansible Vault secret manager. The
 - When working with encrypted data, process in memory without creating temporary files.
 
 ## Project Conventions
-- Python scripts use the `.py` extension and follow a 4 whitespace indentation style.
-- Emojis aren't used in code files, documentation, or comments.
-- Code is commented using docstrings and inline comments where necessary.
-- The project uses a `requirements.txt` file to manage Python dependencies.
-- The main script for user interaction is `myvault.py`.
-- JSON format expected for vault contents with "property" field as primary key.
+
+## GPG Commit Signing
+- All contributors must make every effort to sign their git commits using a GPG key.
+- Signed commits help verify authorship and improve repository security.
+- Unsigned commits may be flagged during code review and should be avoided unless absolutely necessary.
+
+### Setup Instructions
+1. Generate a GPG key if you do not have one:
+  ```bash
+  gpg --full-generate-key
+  ```
+2. List your GPG keys:
+  ```bash
+  gpg --list-secret-keys --keyid-format LONG
+  ```
+3. Configure git to use your signing key:
+  ```bash
+  git config --global user.signingkey <YOUR_KEY_ID>
+  git config --global commit.gpgsign true
+  ```
+4. Optionally, add your public key to your GitHub account for verified signatures.
+
+### Testing GPG Signing
+To verify that commit signing works:
+1. Make a test commit with signing:
+  ```bash
+  echo "# GPG signing test" > gpg-sign-test.txt
+  git add gpg-sign-test.txt
+  git commit -S -m "test: verify GPG commit signing"
+  ```
+2. Check the commit signature:
+  ```bash
+  git log --show-signature -1
+  ```
+3. On GitHub, look for the "Verified" badge on your commit or PR.
+
+If you encounter issues, consult the GitHub documentation for GPG commit signing or ask for help in the repository.
 
 ## Key Workflows
 * Run locally:
