@@ -12,6 +12,12 @@ This repository contains MyVault, a JSON-based Ansible Vault secret manager. The
 - When working with encrypted data, process in memory without creating temporary files.
 
 ## Project Conventions
+- Emojis aren't used in code files, documentation, or comments.
+- Python scripts use the .py extension and follow a 4 whitespace indentation style.
+- Code is commented using docstrings and inline comments where necessary.
+- The project uses a requirements.txt file to manage Python dependencies.
+- The main script for user interaction is myvault.py.
+- JSON format expected for vault contents with "property" field as primary key.
 
 ## GPG Commit Signing
 - All contributors must make every effort to sign their git commits using a GPG key.
