@@ -1,3 +1,13 @@
+## Pull Request Description Guidelines
+
+- For simple code changes and PRs, use concise, direct descriptions.
+- For larger or more complex PRs, provide detailed, high-quality descriptions that summarize:
+  - The main changes and rationale
+  - Any important context, design decisions, or breaking changes
+  - Testing steps or validation performed
+- Use bullet points, lists, and clear formatting for readability in large PRs.
+- If in doubt, err on the side of more detail for reviewers.
+
 # Copilot Instructions
 
 ## Purpose
