@@ -1,3 +1,9 @@
+import functools
+# Helper decorator to skip interactive tests in CI
+skip_in_ci = pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Skipped in CI: requires interactive password input or prompt."
+)
 #!/usr/bin/env python3
 """
 Tests for myvault.py - JSON-based Ansible Vault Secret Manager
@@ -839,6 +845,7 @@ class TestMainFunction:
                 myvault.main()
     
     @patch.dict(os.environ, {}, clear=True)
+    @skip_in_ci
     def test_main_no_vault_password(self, capsys):
         """Test main function without VAULT_PASSWORD."""
         with patch('sys.argv', ['myvault.py', 'validate', '-i', 'test.json']):
