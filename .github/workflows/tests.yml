@@ -5,9 +5,25 @@ on:
     branches: [ "main" ]
 
 jobs:
-  test:
+  test-internal:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: macos-15-large
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Source environment and run tests
+        run: |
+          python3 -m venv venv
+          source ./environment.sh
+          python3 run_tests.py
+
+  test-external:
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
