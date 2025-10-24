@@ -1,3 +1,4 @@
+import os
 import functools
 import pytest
 # Helper decorator to skip interactive tests in CI
