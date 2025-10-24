@@ -17,16 +17,23 @@ import json
 import tempfile
 import shutil
 import stat
+
 from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
 import pytest
 
 # Add the parent directory to sys.path to import myvault
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import myvault
 from myvault import VaultError, JSONValidator, VaultManager, match_property_expression
 
+# Helper decorator to skip interactive tests in CI
+skip_in_ci = pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Skipped in CI: requires interactive password input or prompt."
+)
 
 class TestPropertyExpressions:
     """Test property expression matching functionality."""
