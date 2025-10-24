@@ -1,4 +1,5 @@
 import functools
+import pytest
 # Helper decorator to skip interactive tests in CI
 skip_in_ci = pytest.mark.skipif(
     os.environ.get("CI") == "true",
