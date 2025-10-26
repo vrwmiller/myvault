@@ -12,12 +12,7 @@ PROJECT_ROOT="$SCRIPT_DIR"
 echo "Setting up MyVault development environment..."
 
 # Check if virtual environment exists
-if [ ! -d "$PROJECT_ROOT/venv" ]; then
-    echo "Error: Virtual environment not found at $PROJECT_ROOT/venv"
-    echo "Please create it first with: python3 -m venv venv"
-    echo "Skipping environment activation..."
-    return 0
-fi
+[ -d "$PROJECT_ROOT/venv" ] || python3 -m venv venv
 
 # Deactivate any existing virtual environment
 if [ -n "$VIRTUAL_ENV" ]; then
@@ -57,6 +52,7 @@ export MYVAULT_PROJECT_ROOT="$PROJECT_ROOT"
 
 # Install/update dependencies
 echo "Installing/updating Python dependencies..."
+python3 -m pip install --upgrade pip
 pip install -r requirements.txt
 
 # Optional: Set default vault password environment variable
