@@ -495,7 +495,142 @@ class TestCommandHandlers:
         
         captured = capsys.readouterr()
         assert "No entries found matching property expression: nonexistent*|missing.*" in captured.out
-    
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    def test_handle_read_format_json(self, mock_validate, mock_vault_class, capsys):
+        """Test read with --format json outputs a JSON array to stdout."""
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = [
+            {"property": "website1.com", "username": "user1", "password": "secret1"},
+            {"property": "api.service", "username": "api", "password": "token"},
+        ]
+        mock_vault_class.return_value = mock_vault
+
+        args = MagicMock()
+        args.file = "vault.json"
+        args.property = None
+        args.output = None
+        args.output_format = "json"
+
+        myvault.handle_read(args, "password")
+
+        captured = capsys.readouterr()
+        parsed = json.loads(captured.out)
+        assert isinstance(parsed, list)
+        assert len(parsed) == 2
+        assert parsed[0]["property"] == "website1.com"
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    def test_handle_read_format_raw(self, mock_validate, mock_vault_class, capsys):
+        """Test read with --format raw --field outputs one value per entry."""
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = [
+            {"property": "website1.com", "username": "user1", "password": "secret1"},
+            {"property": "api.service", "username": "api", "password": "token"},
+        ]
+        mock_vault_class.return_value = mock_vault
+
+        args = MagicMock()
+        args.file = "vault.json"
+        args.property = None
+        args.output = None
+        args.output_format = "raw"
+        args.field = "password"
+
+        myvault.handle_read(args, "password")
+
+        captured = capsys.readouterr()
+        lines = captured.out.strip().splitlines()
+        assert lines == ["secret1", "token"]
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    def test_handle_read_format_raw_missing_field_arg(self, mock_validate, mock_vault_class):
+        """Test read with --format raw but no --field raises VaultError."""
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = [
+            {"property": "website1.com", "username": "user1", "password": "secret1"},
+        ]
+        mock_vault_class.return_value = mock_vault
+
+        args = MagicMock()
+        args.file = "vault.json"
+        args.property = None
+        args.output = None
+        args.output_format = "raw"
+        args.field = None
+
+        with pytest.raises(VaultError, match="--field is required"):
+            myvault.handle_read(args, "password")
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    def test_handle_read_format_raw_field_missing_from_entry(self, mock_validate, mock_vault_class, capsys):
+        """Test raw format when the requested field is absent from an entry writes to stderr."""
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = [
+            {"property": "website1.com", "username": "user1"},
+        ]
+        mock_vault_class.return_value = mock_vault
+
+        args = MagicMock()
+        args.file = "vault.json"
+        args.property = None
+        args.output = None
+        args.output_format = "raw"
+        args.field = "password"
+
+        myvault.handle_read(args, "password")
+
+        captured = capsys.readouterr()
+        assert "not found" in captured.err
+        assert captured.out.strip() == ""
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    def test_handle_read_format_pipe_is_default(self, mock_validate, mock_vault_class, capsys):
+        """Test that pipe format (default) still produces pipe-separated output."""
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = [
+            {"property": "website1.com", "username": "user1", "password": "secret1"},
+        ]
+        mock_vault_class.return_value = mock_vault
+
+        args = MagicMock()
+        args.file = "vault.json"
+        args.property = None
+        args.output = None
+        args.output_format = "pipe"
+
+        myvault.handle_read(args, "password")
+
+        captured = capsys.readouterr()
+        assert "website1.com | user1 | secret1" in captured.out
+
+    @patch.dict(os.environ, {'VAULT_PASSWORD': 'test_password'})
+    @patch('myvault.handle_read')
+    def test_main_read_format_json_routed(self, mock_handle):
+        """Test that --format json is passed through to handle_read."""
+        with patch('sys.argv', ['myvault.py', '-f', 'vault.json', 'read', '--format', 'json']):
+            myvault.main()
+        mock_handle.assert_called_once()
+        call_args = mock_handle.call_args[0][0]
+        assert call_args.output_format == 'json'
+
+    @patch.dict(os.environ, {'VAULT_PASSWORD': 'test_password'})
+    @patch('myvault.handle_read')
+    def test_main_read_format_raw_and_field_routed(self, mock_handle):
+        """Test that --format raw --field is passed through to handle_read."""
+        with patch('sys.argv', ['myvault.py', '-f', 'vault.json', 'read',
+                                '--format', 'raw', '--field', 'password']):
+            myvault.main()
+        mock_handle.assert_called_once()
+        call_args = mock_handle.call_args[0][0]
+        assert call_args.output_format == 'raw'
+        assert call_args.field == 'password'
+
     @patch('myvault.VaultManager')
     @patch('myvault.JSONValidator.validate_file_permissions')
     @patch('builtins.input', return_value='y')
