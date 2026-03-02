@@ -10,6 +10,9 @@
 
 # Copilot Instructions
 
+## Tooling Preferences
+- Prefer the `gh` CLI for all GitHub-related operations (issues, PRs, releases, etc.) unless a more specific or capable tool is available and necessary.
+
 ## Purpose
 This repository contains MyVault, a JSON-based Ansible Vault secret manager. The tool provides comprehensive CRUD operations for managing encrypted credential stores with property-based queries and secure password handling. Focus on security best practices, robust error handling, and maintainable code when suggesting improvements or additions.
 
@@ -28,6 +31,11 @@ This repository contains MyVault, a JSON-based Ansible Vault secret manager. The
 - The project uses a requirements.txt file to manage Python dependencies.
 - The main script for user interaction is myvault.py.
 - JSON format expected for vault contents with "property" field as primary key.
+
+## Branch Strategy
+- All changes must be made on a feature branch, never committed directly to `main`.
+- Open a pull request to merge changes into `main`.
+- Branch names should be descriptive and reflect the work being done (e.g., `feat/add-search`, `fix/vault-decryption`).
 
 ## GPG Commit Signing
 - All contributors must make every effort to sign their git commits using a GPG key.

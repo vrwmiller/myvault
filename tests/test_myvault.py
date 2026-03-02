@@ -1,11 +1,3 @@
-import os
-import functools
-import pytest
-# Helper decorator to skip interactive tests in CI
-skip_in_ci = pytest.mark.skipif(
-    os.environ.get("CI") == "true",
-    reason="Skipped in CI: requires interactive password input or prompt."
-)
 #!/usr/bin/env python3
 """
 Tests for myvault.py - JSON-based Ansible Vault Secret Manager
@@ -30,12 +22,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import myvault
 from myvault import VaultError, JSONValidator, VaultManager, match_property_expression
-
-# Helper decorator to skip interactive tests in CI
-skip_in_ci = pytest.mark.skipif(
-    os.environ.get("CI") == "true",
-    reason="Skipped in CI: requires interactive password input or prompt."
-)
 
 class TestPropertyExpressions:
     """Test property expression matching functionality."""
@@ -854,12 +840,13 @@ class TestMainFunction:
                 myvault.main()
     
     @patch.dict(os.environ, {}, clear=True)
-    @skip_in_ci
-    def test_main_no_vault_password(self, capsys):
-        """Test main function without VAULT_PASSWORD."""
+    @patch('getpass.getpass', side_effect=EOFError)
+    def test_main_no_vault_password(self, mock_getpass, capsys):
+        """Test main function without VAULT_PASSWORD falls back to prompt; EOFError causes exit."""
         with patch('sys.argv', ['myvault.py', 'validate', '-i', 'test.json']):
             with pytest.raises(SystemExit):
                 myvault.main()
+        mock_getpass.assert_called_once()
     
     @patch.dict(os.environ, {'VAULT_PASSWORD': 'test_password'})
     @patch('myvault.handle_validate')
