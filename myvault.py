@@ -31,6 +31,8 @@ import stat
 import fnmatch
 import getpass
 import hashlib
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 from ansible.constants import DEFAULT_VAULT_ID_MATCH
@@ -252,6 +254,8 @@ Examples:
   myvault.py delete -f vault.json --property website1.com
   myvault.py delete -f vault.json --property "web*|test.*"
   myvault.py delete -f vault.json --property "*.old" --force
+  myvault.py edit -f vault.json
+  myvault.py edit -f vault.json --editor nano
         """
     )
     
@@ -298,15 +302,21 @@ Examples:
     delete_parser.add_argument('--force', action='store_true',
                              help='Skip confirmation prompt')
     
+    # Edit command
+    edit_parser = subparsers.add_parser('edit',
+                                       help='Open vault in a text editor')
+    edit_parser.add_argument('--editor',
+                            help='Editor to use (overrides $EDITOR, default: vi)')
+
     args = parser.parse_args()
-    
+
     if not args.command:
         parser.print_help()
         sys.exit(1)
-    
+
     # Setup logging based on debug mode
     setup_logging(debug_mode=args.debug)
-    
+
     # Set debug level if requested
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -338,7 +348,9 @@ Examples:
             handle_update(args, vault_password)
         elif args.command == 'delete':
             handle_delete(args, vault_password)
-        
+        elif args.command == 'edit':
+            handle_edit(args, vault_password)
+
     except VaultError as e:
         logger.error(f"Vault operation failed: {e}")
         print(f"Error: {e}", file=sys.stderr)
@@ -791,6 +803,88 @@ def handle_delete(args, vault_password: str) -> None:
         logger.info(f"Deleted property: {prop}")
     
     logger.info(f"Delete operation completed for expression: {args.property}")
+
+
+def handle_edit(args, vault_password: str) -> None:
+    """Handle edit subcommand: decrypt vault to a secure temp file, open in editor,
+    validate, and re-encrypt on save.
+    """
+    if not args.file:
+        raise VaultError("Vault file (-f/--file) is required for edit command")
+
+    logger.info(f"Editing vault file: {args.file}")
+
+    # Resolve editor: CLI flag > $EDITOR > vi
+    editor = getattr(args, 'editor', None) or os.environ.get("EDITOR") or "vi"
+    logger.info(f"Using editor: {editor}")
+
+    # Validate vault file permissions
+    JSONValidator.validate_file_permissions(args.file)
+
+    # Load existing vault data
+    vault_manager = VaultManager(vault_password)
+    vault_data = vault_manager.load_vault_file(args.file)
+
+    # Write decrypted JSON to a secure temporary file
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="myvault_edit_")
+    try:
+        os.chmod(tmp_path, 0o600)
+        with os.fdopen(tmp_fd, 'w', encoding='utf-8') as tmp_file:
+            json.dump(vault_data, tmp_file, indent=2, ensure_ascii=False)
+            tmp_file.write("\n")
+        tmp_fd = None  # fd is now closed via fdopen
+
+        print(f"Opening vault in {editor}... (save and quit to apply changes, quit without saving to cancel)")
+        print("Warning: decrypted vault contents are written to a temporary file while editing.")
+
+        while True:
+            # Open editor and wait for it to exit
+            exit_code = subprocess.call([editor, tmp_path])
+
+            if exit_code != 0:
+                logger.warning(f"Editor exited with non-zero code: {exit_code}")
+                print(f"Editor exited with code {exit_code}. Changes not saved.", file=sys.stderr)
+                return
+
+            # Read back and validate JSON
+            try:
+                with open(tmp_path, 'r', encoding='utf-8') as f:
+                    edited_content = f.read()
+
+                edited_data = json.loads(edited_content)
+                validated_data = JSONValidator.validate_json_structure(edited_data)
+                break  # Valid JSON — proceed
+
+            except (json.JSONDecodeError, VaultError) as e:
+                print(f"\nError: {e}", file=sys.stderr)
+                response = input("Invalid JSON. Re-open editor to fix? (y/N): ").strip().lower()
+                if response in ('y', 'yes'):
+                    continue
+                else:
+                    print("Edit cancelled. No changes saved.")
+                    logger.info("Edit cancelled by user after validation failure")
+                    return
+
+        # Re-encrypt and save
+        vault_manager.save_vault_file(args.file, validated_data)
+        entry_count = len(validated_data)
+        print(f"Vault saved successfully ({entry_count} {'entry' if entry_count == 1 else 'entries'}).")
+        logger.info(f"Edit completed: saved {entry_count} entries to {args.file}")
+
+    finally:
+        # Securely overwrite temp file contents before deletion
+        if os.path.exists(tmp_path):
+            try:
+                file_size = os.path.getsize(tmp_path)
+                with open(tmp_path, 'r+b') as f:
+                    f.write(b'\x00' * file_size)
+                    f.flush()
+                    os.fsync(f.fileno())
+            except Exception:
+                pass  # Best-effort overwrite
+            finally:
+                os.unlink(tmp_path)
+                logger.info("Temporary edit file securely removed")
 
 
 if __name__ == "__main__":
