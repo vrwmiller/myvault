@@ -11,7 +11,8 @@
 # Copilot Instructions
 
 ## Tooling Preferences
-- Prefer the `gh` CLI for all GitHub-related operations (issues, PRs, releases, etc.) unless a more specific or capable tool is available and necessary.
+- Use the `gh` CLI for all GitHub-related operations: viewing issues (`gh issue view`), creating/reviewing PRs, managing releases, querying the API, etc.
+- `gh` is sufficient for all common GitHub tasks — do not use other tools (e.g. GitKraken MCP) for operations that `gh` can handle.
 
 ## Purpose
 This repository contains MyVault, a JSON-based Ansible Vault secret manager. The tool provides comprehensive CRUD operations for managing encrypted credential stores with property-based queries and secure password handling. Focus on security best practices, robust error handling, and maintainable code when suggesting improvements or additions.

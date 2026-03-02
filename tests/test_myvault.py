@@ -895,5 +895,197 @@ class TestMainFunction:
                 myvault.main()
 
 
+class TestEditCommand:
+    """Tests for the handle_edit subcommand."""
+
+    SAMPLE_VAULT_DATA = [
+        {"property": "website1.com", "username": "user1", "password": "secret1"},
+        {"property": "api.service", "username": "api", "password": "token"},
+    ]
+
+    def _make_args(self, file="vault.json", editor=None):
+        args = MagicMock()
+        args.file = file
+        args.editor = editor
+        return args
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    def test_handle_edit_no_file(self, mock_validate, mock_vault_class):
+        """Test that missing -f/--file raises VaultError."""
+        args = self._make_args(file=None)
+        with pytest.raises(VaultError, match="required for edit command"):
+            myvault.handle_edit(args, "password")
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('subprocess.call', return_value=0)
+    @patch('tempfile.mkstemp')
+    def test_handle_edit_success(self, mock_mkstemp, mock_subproc, mock_validate,
+                                  mock_vault_class, tmp_path, capsys):
+        """Test successful edit: loads vault, opens editor, validates, saves."""
+        tmp_file = tmp_path / "myvault_edit_test.json"
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+        mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        args = self._make_args(editor="vi")
+        myvault.handle_edit(args, "password")
+
+        mock_subproc.assert_called_once_with(["vi", str(tmp_file)])
+        mock_vault.save_vault_file.assert_called_once()
+        captured = capsys.readouterr()
+        assert "saved successfully" in captured.out
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('subprocess.call', return_value=0)
+    @patch('tempfile.mkstemp')
+    def test_handle_edit_uses_cli_editor(self, mock_mkstemp, mock_subproc, mock_validate,
+                                          mock_vault_class, tmp_path):
+        """Test that --editor flag takes priority over $EDITOR."""
+        tmp_file = tmp_path / "myvault_edit_test.json"
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+        mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        with patch.dict(os.environ, {"EDITOR": "emacs"}):
+            args = self._make_args(editor="nano")
+            myvault.handle_edit(args, "password")
+
+        called_editor = mock_subproc.call_args[0][0][0]
+        assert called_editor == "nano"
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('subprocess.call', return_value=0)
+    @patch('tempfile.mkstemp')
+    def test_handle_edit_uses_env_editor(self, mock_mkstemp, mock_subproc, mock_validate,
+                                          mock_vault_class, tmp_path):
+        """Test that $EDITOR is used when --editor is not provided."""
+        tmp_file = tmp_path / "myvault_edit_test.json"
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+        mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        with patch.dict(os.environ, {"EDITOR": "emacs"}, clear=False):
+            args = self._make_args(editor=None)
+            myvault.handle_edit(args, "password")
+
+        called_editor = mock_subproc.call_args[0][0][0]
+        assert called_editor == "emacs"
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('subprocess.call', return_value=0)
+    @patch('tempfile.mkstemp')
+    def test_handle_edit_defaults_to_vi(self, mock_mkstemp, mock_subproc, mock_validate,
+                                         mock_vault_class, tmp_path):
+        """Test that vi is the default editor when neither --editor nor $EDITOR is set."""
+        tmp_file = tmp_path / "myvault_edit_test.json"
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+        mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        env_without_editor = {k: v for k, v in os.environ.items() if k != "EDITOR"}
+        with patch.dict(os.environ, env_without_editor, clear=True):
+            args = self._make_args(editor=None)
+            myvault.handle_edit(args, "password")
+
+        called_editor = mock_subproc.call_args[0][0][0]
+        assert called_editor == "vi"
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('subprocess.call', return_value=1)
+    @patch('tempfile.mkstemp')
+    def test_handle_edit_editor_nonzero_exit(self, mock_mkstemp, mock_subproc, mock_validate,
+                                              mock_vault_class, tmp_path, capsys):
+        """Test that a non-zero editor exit code aborts without saving."""
+        tmp_file = tmp_path / "myvault_edit_test.json"
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+        mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        args = self._make_args(editor="vi")
+        myvault.handle_edit(args, "password")
+
+        mock_vault.save_vault_file.assert_not_called()
+        captured = capsys.readouterr()
+        assert "Changes not saved" in captured.err
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('builtins.input', return_value='n')
+    @patch('tempfile.mkstemp')
+    def test_handle_edit_invalid_json_cancel(self, mock_mkstemp, mock_input, mock_validate,
+                                              mock_vault_class, tmp_path, capsys):
+        """Test that invalid JSON followed by cancel aborts without saving."""
+        tmp_file = tmp_path / "myvault_edit_test.json"
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+        mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        # Simulate editor writing invalid JSON to the temp file
+        def corrupt_file(cmd):
+            with open(cmd[1], 'w') as f:
+                f.write("this is not valid json {{{")
+            return 0
+
+        args = self._make_args(editor="vi")
+        with patch('subprocess.call', side_effect=corrupt_file):
+            myvault.handle_edit(args, "password")
+
+        mock_vault.save_vault_file.assert_not_called()
+        captured = capsys.readouterr()
+        assert "cancelled" in captured.out.lower()
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('subprocess.call', return_value=0)
+    @patch('tempfile.mkstemp')
+    def test_handle_edit_temp_file_cleaned_up(self, mock_mkstemp, mock_subproc, mock_validate,
+                                               mock_vault_class, tmp_path):
+        """Test that the temp file is deleted after editing."""
+        tmp_file = tmp_path / "myvault_edit_test.json"
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+        mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        args = self._make_args(editor="vi")
+        myvault.handle_edit(args, "password")
+
+        assert not tmp_file.exists(), "Temporary edit file should be deleted after editing"
+
+    @patch.dict(os.environ, {'VAULT_PASSWORD': 'test_password'})
+    @patch('myvault.handle_edit')
+    def test_main_routes_edit_command(self, mock_handle_edit):
+        """Test that main() routes 'edit' command to handle_edit."""
+        with patch('sys.argv', ['myvault.py', '-f', 'vault.json', 'edit']):
+            myvault.main()
+        mock_handle_edit.assert_called_once()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
