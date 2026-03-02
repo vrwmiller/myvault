@@ -250,6 +250,8 @@ Examples:
   myvault.py read -f vault.json --property website1.com
   myvault.py read -f vault.json --property "web*|*api*"
   myvault.py read -f vault.json --property "*.com|database.*"
+  myvault.py read -f vault.json --property website1.com --format json
+  myvault.py read -f vault.json --property website1.com --format raw --field password
   myvault.py update -f vault.json -i updates.json
   myvault.py delete -f vault.json --property website1.com
   myvault.py delete -f vault.json --property "web*|test.*"
@@ -281,6 +283,12 @@ Examples:
                            help='Filter by property expression (supports glob patterns and | for multiple: "web*|*api*|exact.match")')
     read_parser.add_argument('-o', '--output',
                            help='Output to JSON file instead of STDOUT')
+    read_parser.add_argument('--format', dest='output_format',
+                           choices=['pipe', 'json', 'raw'],
+                           default='pipe',
+                           help='Output format: pipe (default), json array, or raw single-field value (requires --field)')
+    read_parser.add_argument('--field',
+                           help='Field name to extract; used with --format raw')
     
     # Create command
     create_parser = subparsers.add_parser('create',
@@ -452,7 +460,7 @@ def handle_read(args, vault_password: str) -> None:
     
     # Output results
     if args.output:
-        # Write to output file with secure permissions
+        # Write to output file with secure permissions (always JSON)
         Path(args.output).touch(mode=0o600)
         with open(args.output, 'w', encoding='utf-8') as f:
             json.dump(filtered_data, f, indent=2, ensure_ascii=False)
@@ -461,86 +469,82 @@ def handle_read(args, vault_password: str) -> None:
         logger.info(f"Results written to: {args.output}")
         print(f"Results written to: {args.output}")
     else:
-        # Output to STDOUT - show all values unmasked in compact single-line format
-        for entry in filtered_data:
-            # Create a compact single-line representation with logical field ordering
-            parts = []
-            
-            # Always show property value first
-            if 'property' in entry:
-                parts.append(str(entry['property']))
-            
-            # Collect and sort username/password pairs by number
-            credential_pairs = []
-            processed_fields = {'property'}
-            
-            # Find all numbered username/password pairs
-            usernames = {}
-            passwords = {}
-            
-            for key in entry.keys():
-                if key.startswith('username'):
-                    if key == 'username':
-                        usernames[0] = key  # Single username gets priority
-                    elif key.startswith('username') and key[8:].isdigit():
-                        num = int(key[8:])
-                        usernames[num] = key
-                elif key.startswith('password'):
-                    if key == 'password':
-                        passwords[0] = key  # Single password gets priority
-                    elif key.startswith('password') and key[8:].isdigit():
-                        num = int(key[8:])
-                        passwords[num] = key
-            
-            # Add credential pairs in numerical order
-            all_nums = sorted(set(usernames.keys()) | set(passwords.keys()))
-            for num in all_nums:
-                if num in usernames:
-                    username_key = usernames[num]
-                    value = entry[username_key]
-                    if value is None:
-                        value = "null"
-                    else:
-                        value = str(value)
-                    parts.append(value)
-                    processed_fields.add(username_key)
-                
-                if num in passwords:
-                    password_key = passwords[num]
-                    value = entry[password_key]
-                    if value is None:
-                        value = "null"
-                    else:
-                        value = str(value)
-                    parts.append(value)
-                    processed_fields.add(password_key)
-            
-            # Then other secret fields
-            other_secret_fields = ['secret', 'apitoken', 'token', 'key', 'apikey']
-            for field in other_secret_fields:
-                if field in entry:
-                    value = entry[field]
-                    if value is None:
-                        value = "null"
-                    else:
-                        value = str(value)
-                    parts.append(value)
-                    processed_fields.add(field)
-            
-            # Finally, add remaining fields in alphabetical order
-            remaining_fields = [k for k in sorted(entry.keys()) if k not in processed_fields]
-            for key in remaining_fields:
-                value = entry[key]
-                # Format boolean and None values nicely
-                if isinstance(value, bool):
-                    value = str(value).lower()
-                elif value is None:
-                    value = "null"
+        output_format = getattr(args, 'output_format', 'pipe')
+
+        if output_format == 'json':
+            # Output JSON array to STDOUT
+            print(json.dumps(filtered_data, indent=2, ensure_ascii=False))
+            logger.info(f"Output {len(filtered_data)} entries as JSON")
+
+        elif output_format == 'raw':
+            # Output a single field value per matching entry
+            field = getattr(args, 'field', None)
+            if not field:
+                raise VaultError("--field is required when using --format raw")
+            logger.info(f"Extracting field '{field}' from {len(filtered_data)} entries")
+            for entry in filtered_data:
+                if field not in entry:
+                    logger.warning(f"Field '{field}' not found in entry '{entry.get('property', '?')}'")
+                    print(f"<field '{field}' not found in '{entry.get('property', '?')}'>",
+                          file=sys.stderr)
                 else:
-                    value = str(value)
-                parts.append(value)
-            
-            print(" | ".join(parts))
+                    value = entry[field]
+                    print("null" if value is None else str(value))
+
+        else:
+            # pipe format (default): compact single-line representation
+            for entry in filtered_data:
+                parts = []
+
+                # Always show property value first
+                if 'property' in entry:
+                    parts.append(str(entry['property']))
+
+                processed_fields = {'property'}
+
+                # Find all numbered username/password pairs
+                usernames = {}
+                passwords = {}
+
+                for key in entry.keys():
+                    if key.startswith('username'):
+                        if key == 'username':
+                            usernames[0] = key
+                        elif key[8:].isdigit():
+                            usernames[int(key[8:])] = key
+                    elif key.startswith('password'):
+                        if key == 'password':
+                            passwords[0] = key
+                        elif key[8:].isdigit():
+                            passwords[int(key[8:])] = key
+
+                # Add credential pairs in numerical order
+                for num in sorted(set(usernames.keys()) | set(passwords.keys())):
+                    if num in usernames:
+                        k = usernames[num]
+                        parts.append("null" if entry[k] is None else str(entry[k]))
+                        processed_fields.add(k)
+                    if num in passwords:
+                        k = passwords[num]
+                        parts.append("null" if entry[k] is None else str(entry[k]))
+                        processed_fields.add(k)
+
+                # Then other known secret fields
+                for field in ['secret', 'apitoken', 'token', 'key', 'apikey']:
+                    if field in entry:
+                        v = entry[field]
+                        parts.append("null" if v is None else str(v))
+                        processed_fields.add(field)
+
+                # Finally remaining fields alphabetically
+                for key in sorted(k for k in entry.keys() if k not in processed_fields):
+                    value = entry[key]
+                    if isinstance(value, bool):
+                        parts.append(str(value).lower())
+                    else:
+                        parts.append("null" if value is None else str(value))
+
+                print(" | ".join(parts))
 
 
 def handle_create(args, vault_password: str) -> None:
