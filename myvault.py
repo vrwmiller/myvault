@@ -825,8 +825,8 @@ def _secure_tmpdir():
     tmpdir = None
 
     try:
-        if system == 'Linux' and os.path.isdir('/dev/shm'):
-            tmpdir = tempfile.mkdtemp(dir='/dev/shm', prefix='myvault_')
+        if system == 'Linux' and os.path.isdir('/dev/shm'):  # nosec B108 - intentional: /dev/shm is a memory-backed tmpfs
+            tmpdir = tempfile.mkdtemp(dir='/dev/shm', prefix='myvault_')  # nosec B108
             logger.info('Using /dev/shm (tmpfs) for secure edit temp directory')
 
         elif system == 'Darwin':
