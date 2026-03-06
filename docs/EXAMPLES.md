@@ -14,7 +14,7 @@ python3 myvault.py validate -i secrets.json
 python3 myvault.py -f vault.json create -i new_secrets.json
 ```
 
-### Read all entries (with sensitive fields masked)
+### Read all entries
 
 ```bash
 python3 myvault.py -f vault.json read
@@ -72,47 +72,74 @@ python3 myvault.py -f vault.json delete --property "test.*" --force
 python3 myvault.py -f vault.json delete --property "*.old|temp.*"
 ```
 
-## Pipeline and Scripting Usage
-
-### Output Format
-
-myvault outputs data in a pipe-separated format that's ideal for shell scripting and command pipelines.
-
-#### Extract specific fields
+### Edit vault interactively
 
 ```bash
-# Extract password field
-python3 myvault.py -f vault.json read --property "website1.com" | cut -d' | ' -f3
+# Open vault in default editor ($EDITOR, or vi if unset)
+python3 myvault.py -f vault.json edit
 
-# Using awk for more control
-python3 myvault.py -f vault.json read --property "website1.com" | awk -F' \\| ' '{print $3}'
+# Open vault in a specific editor
+python3 myvault.py -f vault.json edit --editor nano
 
-# Extract username field
-python3 myvault.py -f vault.json read --property "website1.com" | cut -d' | ' -f2
+# Use a GUI editor
+python3 myvault.py -f vault.json edit --editor "code --wait"
 ```
 
-#### Real-world automation examples
+## Pipeline and Scripting Usage
+
+### Output Formats
+
+myvault supports three output formats via `--format`:
+
+- `pipe` (default): space-pipe-space separated, one entry per line
+- `json`: JSON array to stdout
+- `raw`: single field value per matching entry, one per line
+
+#### pipe format — extract specific fields with shell tools
 
 ```bash
-# Use password in API calls
-curl -H "Authorization: Bearer $(python3 myvault.py -f vault.json read --property "api.token" | cut -d' | ' -f3)" \
+# Extract password field (3rd column in pipe format)
+python3 myvault.py -f vault.json read --property "website1.com" | awk -F' \| ' '{print $3}'
+
+# Extract username field
+python3 myvault.py -f vault.json read --property "website1.com" | awk -F' \| ' '{print $2}'
+```
+
+#### raw format — extract a single field directly (recommended for scripting)
+
+```bash
+# Extract password directly — no parsing needed
+python3 myvault.py -f vault.json read --property "website1.com" --format raw --field password
+
+# Capture into a variable
+DB_PASS=$(python3 myvault.py -f vault.json read --property "database.prod" --format raw --field password)
+
+# Use in curl
+curl -H "Authorization: Bearer $(python3 myvault.py -f vault.json read --property "api.token" --format raw --field apitoken)" \
      https://api.example.com/data
 
-# SSH with password from vault
-sshpass -p "$(python3 myvault.py -f vault.json read --property "server1.ssh" | cut -d' | ' -f3)" \
+# Use with sshpass
+sshpass -p "$(python3 myvault.py -f vault.json read --property "server1.ssh" --format raw --field password)" \
         ssh user@server1.com
 
-# Set environment variable from vault
-export DB_PASSWORD=$(python3 myvault.py -f vault.json read --property "database.prod" | awk -F' \\| ' '{print $3}')
+# Use with mysql
+mysql -u admin -p"$(python3 myvault.py -f vault.json read --property "mysql.admin" --format raw --field password)" mydb
+```
 
-# MySQL connection with vault password
-mysql -u admin -p"$(python3 myvault.py -f vault.json read --property "mysql.admin" | cut -d' | ' -f3)" mydb
+#### json format — machine-readable output
+
+```bash
+# Output as JSON array
+python3 myvault.py -f vault.json read --property "web*" --format json
+
+# Pipe to jq for further processing
+python3 myvault.py -f vault.json read --property "web*" --format json | jq '.[].property'
 ```
 
 #### Export operations
 
 ```bash
-# Export search results to JSON
+# Export search results to a JSON file
 python3 myvault.py -f vault.json read --property "web*" -o results.json
 ```
 

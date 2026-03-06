@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.6 or higher
+- Python 3.9 or higher
 - `venv` module (included with Python 3.3+)
 
 ## Quick Setup (Recommended)
