@@ -47,7 +47,7 @@ python3 -m pytest tests/ --cov=myvault --cov-report=html
 - **Static analysis**: Bandit scans for common security vulnerabilities
 - **No hardcoded secrets**: All sensitive data comes from environment variables or user input
 - **Input validation**: JSON structure and file permissions are validated
-  - **Secure temporary files**: The `edit` command writes decrypted data to a `tempfile.mkstemp()` file (mode 600); contents are overwritten with null bytes and the file is deleted in a `finally` block before the process exits. All other commands process vault data in memory only.
+- **Memory-backed temporary files**: The `edit` command decrypts the vault into a temp file inside a memory-backed directory — `/dev/shm` on Linux, a RAM disk via `hdiutil` on macOS. The temp file is mode 600, zeroed with null bytes, and deleted in a `finally` block. If a RAM-backed filesystem cannot be created, the tool falls back to a regular temp directory with a printed warning. All other commands process vault data in memory only.
 - **Comprehensive logging**: All operations logged with sensitive data redacted
 
 ### Testing Security
