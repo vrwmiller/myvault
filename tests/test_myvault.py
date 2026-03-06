@@ -11,9 +11,10 @@ import json
 import tempfile
 import shutil
 import stat
-
+import platform
+from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock, mock_open, call
 import pytest
 
 # Add the parent directory to sys.path to import myvault
@@ -1195,6 +1196,44 @@ class TestEditCommand:
 
     @patch('myvault.VaultManager')
     @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('tempfile.mkstemp')
+    def test_handle_edit_invalid_json_retry_then_success(self, mock_mkstemp, mock_validate,
+                                                          mock_vault_class, tmp_path, capsys):
+        """Test that invalid JSON + 'y' re-opens the editor, and a valid second save succeeds."""
+        tmp_file = tmp_path / "myvault_edit_test.json"
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+        mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        call_count = [0]
+
+        def editor_side_effect(cmd):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First call: write invalid JSON
+                with open(cmd[1], 'w') as f:
+                    f.write("not valid json {{{")
+            else:
+                # Second call: write valid JSON
+                with open(cmd[1], 'w') as f:
+                    json.dump(self.SAMPLE_VAULT_DATA, f)
+            return 0
+
+        args = self._make_args(editor="vi")
+        with patch('subprocess.call', side_effect=editor_side_effect), \
+             patch('builtins.input', return_value='y'):
+            myvault.handle_edit(args, "password")
+
+        assert call_count[0] == 2, "Editor should be opened twice (once invalid, once valid)"
+        mock_vault.save_vault_file.assert_called_once()
+        captured = capsys.readouterr()
+        assert "saved successfully" in captured.out
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
     @patch('subprocess.call', return_value=0)
     @patch('tempfile.mkstemp')
     def test_handle_edit_temp_file_cleaned_up(self, mock_mkstemp, mock_subproc, mock_validate,
@@ -1222,5 +1261,232 @@ class TestEditCommand:
         mock_handle_edit.assert_called_once()
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+class TestSecureTmpdir:
+    """Unit tests for the _secure_tmpdir() context manager."""
+
+    @patch('platform.system', return_value='Linux')
+    @patch('os.path.isdir', return_value=True)
+    def test_linux_uses_dev_shm(self, mock_isdir, mock_system):
+        """On Linux with /dev/shm available, mkdtemp is called with dir='/dev/shm'."""
+        with patch('tempfile.mkdtemp', return_value='/dev/shm/myvault_test123') as mock_mkdtemp, \
+             patch('os.path.exists', return_value=True), \
+             patch('shutil.rmtree'):
+            with myvault._secure_tmpdir() as tmpdir:
+                assert tmpdir == '/dev/shm/myvault_test123'
+            mock_mkdtemp.assert_called_once_with(dir='/dev/shm', prefix='myvault_')
+
+    @patch('platform.system', return_value='Linux')
+    @patch('os.path.isdir', return_value=False)
+    def test_linux_without_shm_falls_back_to_disk(self, mock_isdir, mock_system, capsys):
+        """On Linux without /dev/shm, falls back to a regular temp dir with a warning."""
+        with patch('tempfile.mkdtemp', return_value='/tmp/myvault_fallback') as mock_mkdtemp, \
+             patch('os.path.exists', return_value=True), \
+             patch('shutil.rmtree'):
+            with myvault._secure_tmpdir() as tmpdir:
+                assert tmpdir == '/tmp/myvault_fallback'
+            mock_mkdtemp.assert_called_once_with(prefix='myvault_')
+        captured = capsys.readouterr()
+        assert 'disk' in captured.err.lower() or 'warning' in captured.err.lower()
+
+    @patch('platform.system', return_value='Windows')
+    def test_unknown_platform_falls_back_to_disk(self, mock_system, capsys):
+        """On an unsupported platform, falls back to a regular temp dir with a warning."""
+        with patch('tempfile.mkdtemp', return_value='/tmp/myvault_fallback') as mock_mkdtemp, \
+             patch('os.path.exists', return_value=True), \
+             patch('shutil.rmtree'):
+            with myvault._secure_tmpdir() as tmpdir:
+                assert tmpdir == '/tmp/myvault_fallback'
+            mock_mkdtemp.assert_called_once_with(prefix='myvault_')
+        captured = capsys.readouterr()
+        assert 'disk' in captured.err.lower() or 'warning' in captured.err.lower()
+
+    @patch('platform.system', return_value='Linux')
+    @patch('os.path.isdir', return_value=True)
+    def test_cleanup_removes_tmpdir(self, mock_isdir, mock_system, tmp_path):
+        """The tmpdir is removed via shutil.rmtree when the context exits normally."""
+        # Use a real subdirectory so os.path.exists returns True and rmtree has something to delete
+        secure_dir = tmp_path / 'simulated_shm' / 'myvault_test'
+        secure_dir.mkdir(parents=True)
+        with patch('tempfile.mkdtemp', return_value=str(secure_dir)):
+            with myvault._secure_tmpdir() as tmpdir:
+                assert tmpdir == str(secure_dir)
+                assert secure_dir.exists()
+        assert not secure_dir.exists(), 'tmpdir should be removed after context exits'
+
+    @patch('platform.system', return_value='Linux')
+    @patch('os.path.isdir', return_value=True)
+    def test_cleanup_runs_even_on_exception(self, mock_isdir, mock_system, tmp_path):
+        """The tmpdir is cleaned up even if an exception is raised inside the context."""
+        secure_dir = tmp_path / 'simulated_shm' / 'myvault_except'
+        secure_dir.mkdir(parents=True)
+        with patch('tempfile.mkdtemp', return_value=str(secure_dir)):
+            with pytest.raises(RuntimeError):
+                with myvault._secure_tmpdir():
+                    raise RuntimeError('test exception')
+        assert not secure_dir.exists(), 'tmpdir should be removed even when an exception occurs'
+
+    @patch('platform.system', return_value='Darwin')
+    def test_macos_creates_ram_disk(self, mock_system):
+        """On macOS, hdiutil attach and diskutil eraseVolume are called to set up a RAM disk."""
+        hdiutil_result = MagicMock()
+        hdiutil_result.stdout = '/dev/disk5\n'
+        with patch('tempfile.mkdtemp', return_value='/Volumes/myvault_abc/myvault_xyz') as mock_mkdtemp, \
+             patch('os.path.exists', return_value=True), \
+             patch('shutil.rmtree'), \
+             patch('subprocess.run') as mock_run:
+            mock_run.side_effect = [hdiutil_result, MagicMock(), MagicMock()]  # attach, erase, detach
+            with myvault._secure_tmpdir() as tmpdir:
+                assert tmpdir == '/Volumes/myvault_abc/myvault_xyz'
+
+            attach_args = mock_run.call_args_list[0][0][0]
+            assert attach_args[0] == 'hdiutil'
+            assert 'attach' in attach_args
+            assert 'ram://16384' in attach_args
+
+            erase_args = mock_run.call_args_list[1][0][0]
+            assert erase_args[0] == 'diskutil'
+            assert '/dev/disk5' in erase_args
+
+            mkdtemp_dir = mock_mkdtemp.call_args[1]['dir']
+            assert mkdtemp_dir.startswith('/Volumes/')
+
+    @patch('platform.system', return_value='Darwin')
+    def test_macos_detaches_ram_disk_on_exit(self, mock_system):
+        """The RAM disk is detached via hdiutil detach when the context exits."""
+        hdiutil_result = MagicMock()
+        hdiutil_result.stdout = '/dev/disk5\n'
+        with patch('tempfile.mkdtemp', return_value='/Volumes/myvault_abc/myvault_xyz'), \
+             patch('os.path.exists', return_value=True), \
+             patch('shutil.rmtree'), \
+             patch('subprocess.run') as mock_run:
+            mock_run.side_effect = [hdiutil_result, MagicMock(), MagicMock()]  # attach, erase, detach
+            with myvault._secure_tmpdir():
+                pass
+
+            detach_args = mock_run.call_args_list[2][0][0]
+            assert detach_args[0] == 'hdiutil'
+            assert 'detach' in detach_args
+            assert '/dev/disk5' in detach_args
+
+    @patch('platform.system', return_value='Darwin')
+    def test_macos_ram_disk_failure_falls_back(self, mock_system, capsys):
+        """If hdiutil fails on macOS, falls back to regular tmpdir with a warning."""
+        with patch('tempfile.mkdtemp', return_value='/tmp/myvault_fallback') as mock_mkdtemp, \
+             patch('os.path.exists', return_value=True), \
+             patch('shutil.rmtree'), \
+             patch('subprocess.run', side_effect=Exception('hdiutil not found')):
+            with myvault._secure_tmpdir() as tmpdir:
+                assert tmpdir == '/tmp/myvault_fallback'
+            mock_mkdtemp.assert_called_once_with(prefix='myvault_')
+        captured = capsys.readouterr()
+        assert 'disk' in captured.err.lower() or 'warning' in captured.err.lower()
+
+    @patch('platform.system', return_value='Darwin')
+    def test_macos_no_detach_if_attach_failed(self, mock_system):
+        """If hdiutil attach fails, hdiutil detach is NOT called (device is None)."""
+        with patch('tempfile.mkdtemp', return_value='/tmp/myvault_fallback'), \
+             patch('os.path.exists', return_value=True), \
+             patch('shutil.rmtree'), \
+             patch('subprocess.run') as mock_run:
+            mock_run.side_effect = Exception('hdiutil not found')
+            with myvault._secure_tmpdir():
+                pass
+
+            # Only one subprocess.run call attempted (hdiutil attach, which failed);
+            # detach must not be called because device was never set
+            detach_calls = [c for c in mock_run.call_args_list
+                            if 'detach' in str(c)]
+            assert len(detach_calls) == 0
+
+
+class TestEditCommandMemorySafety:
+    """Tests that handle_edit always writes the decrypted temp file inside _secure_tmpdir."""
+
+    SAMPLE_VAULT_DATA = [
+        {'property': 'website1.com', 'username': 'user1', 'password': 'secret1'},
+    ]
+
+    def _make_args(self, file='vault.json', editor='vi'):
+        args = MagicMock()
+        args.file = file
+        args.editor = editor
+        return args
+
+    @patch('myvault._secure_tmpdir')
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('subprocess.call', return_value=0)
+    @patch('tempfile.mkstemp')
+    def test_mkstemp_dir_is_from_secure_tmpdir(self, mock_mkstemp, mock_subproc,
+                                                mock_validate, mock_vault_class,
+                                                mock_secure_tmpdir, tmp_path):
+        """mkstemp must be called with dir= pointing to the directory from _secure_tmpdir,
+        not a default filesystem location. This is the core 'does not write to disk' guarantee."""
+        secure_dir = str(tmp_path / 'ram_backed_dir')
+        os.makedirs(secure_dir)
+
+        @contextmanager
+        def fake_cm():
+            yield secure_dir
+
+        mock_secure_tmpdir.side_effect = fake_cm
+
+        tmp_file = tmp_path / 'myvault_edit_test.json'
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+        mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        myvault.handle_edit(self._make_args(), 'password')
+
+        mock_mkstemp.assert_called_once()
+        actual_dir = mock_mkstemp.call_args.kwargs.get('dir')
+        assert actual_dir == secure_dir, (
+            f'Expected mkstemp dir={secure_dir!r} (from _secure_tmpdir), '
+            f'got dir={actual_dir!r}. The decrypted vault must only be written '
+            f'to the memory-backed directory.'
+        )
+
+    @patch('myvault._secure_tmpdir')
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('subprocess.call', return_value=0)
+    @patch('tempfile.mkstemp')
+    def test_secure_tmpdir_entered_before_any_file_write(self, mock_mkstemp, mock_subproc,
+                                                          mock_validate, mock_vault_class,
+                                                          mock_secure_tmpdir, tmp_path):
+        """_secure_tmpdir context must be entered before mkstemp (i.e., before any write)."""
+        call_order = []
+
+        @contextmanager
+        def fake_cm():
+            call_order.append('tmpdir_entered')
+            yield str(tmp_path)
+
+        mock_secure_tmpdir.side_effect = fake_cm
+
+        tmp_file = tmp_path / 'myvault_edit_test.json'
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+
+        def tracking_mkstemp(**kwargs):
+            call_order.append('mkstemp_called')
+            return (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_mkstemp.side_effect = tracking_mkstemp
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        myvault.handle_edit(self._make_args(), 'password')
+
+        assert 'tmpdir_entered' in call_order
+        assert 'mkstemp_called' in call_order
+        assert call_order.index('tmpdir_entered') < call_order.index('mkstemp_called'), (
+            '_secure_tmpdir must be entered before mkstemp (before any plaintext is written)'
+        )
+
+if __name__ == '__main__':
+    pytest.main([__file__, '-v'])
