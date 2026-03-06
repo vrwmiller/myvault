@@ -33,6 +33,9 @@ import getpass
 import hashlib
 import subprocess
 import tempfile
+import contextlib
+import platform
+import shutil
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 from ansible.constants import DEFAULT_VAULT_ID_MATCH
@@ -809,9 +812,63 @@ def handle_delete(args, vault_password: str) -> None:
     logger.info(f"Delete operation completed for expression: {args.property}")
 
 
+@contextlib.contextmanager
+def _secure_tmpdir():
+    """Context manager that yields a memory-backed temporary directory.
+
+    On Linux, uses /dev/shm (tmpfs). On macOS, creates and mounts an 8 MB
+    RAM disk via hdiutil/diskutil. On other platforms, or if RAM disk
+    creation fails, falls back to a regular temp directory with a warning.
+    """
+    system = platform.system()
+    device = None
+    tmpdir = None
+
+    try:
+        if system == 'Linux' and os.path.isdir('/dev/shm'):
+            tmpdir = tempfile.mkdtemp(dir='/dev/shm', prefix='myvault_')
+            logger.info('Using /dev/shm (tmpfs) for secure edit temp directory')
+
+        elif system == 'Darwin':
+            try:
+                vol_name = f'myvault_{os.urandom(4).hex()}'
+                result = subprocess.run(
+                    ['hdiutil', 'attach', '-nomount', 'ram://16384'],
+                    capture_output=True, text=True, check=True
+                )
+                device = result.stdout.strip()
+                subprocess.run(
+                    ['diskutil', 'eraseVolume', 'HFS+', vol_name, device],
+                    capture_output=True, check=True
+                )
+                tmpdir = tempfile.mkdtemp(dir=f'/Volumes/{vol_name}', prefix='myvault_')
+                logger.info(f'Using RAM disk {device} for secure edit temp directory')
+            except Exception as e:
+                logger.warning(f'RAM disk creation failed ({type(e).__name__}); falling back to on-disk temp directory')
+                print('Warning: could not create RAM disk. Decrypted vault will be written to disk temporarily.',
+                      file=sys.stderr)
+
+        if tmpdir is None:
+            logger.warning('No memory-backed filesystem available; decrypted vault will be written to disk temporarily')
+            print('Warning: decrypted vault will be written to disk temporarily. '
+                  'Ensure full-disk encryption is enabled.', file=sys.stderr)
+            tmpdir = tempfile.mkdtemp(prefix='myvault_')
+
+        yield tmpdir
+
+    finally:
+        if tmpdir and os.path.exists(tmpdir):
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        if device:
+            subprocess.run(
+                ['hdiutil', 'detach', '-force', device],
+                capture_output=True, check=False
+            )
+
+
 def handle_edit(args, vault_password: str) -> None:
-    """Handle edit subcommand: decrypt vault to a secure temp file, open in editor,
-    validate, and re-encrypt on save.
+    """Handle edit subcommand: decrypt vault to a memory-backed temp file, open in
+    editor, validate, and re-encrypt on save.
     """
     if not args.file:
         raise VaultError("Vault file (-f/--file) is required for edit command")
@@ -829,66 +886,67 @@ def handle_edit(args, vault_password: str) -> None:
     vault_manager = VaultManager(vault_password)
     vault_data = vault_manager.load_vault_file(args.file)
 
-    # Write decrypted JSON to a secure temporary file
-    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="myvault_edit_")
-    try:
-        os.chmod(tmp_path, 0o600)
-        with os.fdopen(tmp_fd, 'w', encoding='utf-8') as tmp_file:
-            json.dump(vault_data, tmp_file, indent=2, ensure_ascii=False)
-            tmp_file.write("\n")
-        tmp_fd = None  # fd is now closed via fdopen
+    # Write decrypted JSON to a temp file inside a memory-backed directory
+    with _secure_tmpdir() as tmpdir:
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="myvault_edit_", dir=tmpdir)
+        try:
+            os.chmod(tmp_path, 0o600)
+            with os.fdopen(tmp_fd, 'w', encoding='utf-8') as tmp_file:
+                json.dump(vault_data, tmp_file, indent=2, ensure_ascii=False)
+                tmp_file.write("\n")
+            tmp_fd = None  # fd is now closed via fdopen
 
-        print(f"Opening vault in {editor}... (save and quit to apply changes, quit without saving to cancel)")
-        print("Warning: decrypted vault contents are written to a temporary file while editing.")
+            print(f"Opening vault in {editor}... (save and quit to apply changes, quit without saving to cancel)")
 
-        while True:
-            # Open editor and wait for it to exit
-            exit_code = subprocess.call([editor, tmp_path])
+            while True:
+                # Open editor and wait for it to exit
+                exit_code = subprocess.call([editor, tmp_path])
 
-            if exit_code != 0:
-                logger.warning(f"Editor exited with non-zero code: {exit_code}")
-                print(f"Editor exited with code {exit_code}. Changes not saved.", file=sys.stderr)
-                return
-
-            # Read back and validate JSON
-            try:
-                with open(tmp_path, 'r', encoding='utf-8') as f:
-                    edited_content = f.read()
-
-                edited_data = json.loads(edited_content)
-                validated_data = JSONValidator.validate_json_structure(edited_data)
-                break  # Valid JSON — proceed
-
-            except (json.JSONDecodeError, VaultError) as e:
-                print(f"\nError: {e}", file=sys.stderr)
-                response = input("Invalid JSON. Re-open editor to fix? (y/N): ").strip().lower()
-                if response in ('y', 'yes'):
-                    continue
-                else:
-                    print("Edit cancelled. No changes saved.")
-                    logger.info("Edit cancelled by user after validation failure")
+                if exit_code != 0:
+                    logger.warning(f"Editor exited with non-zero code: {exit_code}")
+                    print(f"Editor exited with code {exit_code}. Changes not saved.", file=sys.stderr)
                     return
 
-        # Re-encrypt and save
-        vault_manager.save_vault_file(args.file, validated_data)
-        entry_count = len(validated_data)
-        print(f"Vault saved successfully ({entry_count} {'entry' if entry_count == 1 else 'entries'}).")
-        logger.info(f"Edit completed: saved {entry_count} entries to {args.file}")
+                # Read back and validate JSON
+                try:
+                    with open(tmp_path, 'r', encoding='utf-8') as f:
+                        edited_content = f.read()
 
-    finally:
-        # Securely overwrite temp file contents before deletion
-        if os.path.exists(tmp_path):
-            try:
-                file_size = os.path.getsize(tmp_path)
-                with open(tmp_path, 'r+b') as f:
-                    f.write(b'\x00' * file_size)
-                    f.flush()
-                    os.fsync(f.fileno())
-            except Exception:
-                pass  # Best-effort overwrite
-            finally:
-                os.unlink(tmp_path)
-                logger.info("Temporary edit file securely removed")
+                    edited_data = json.loads(edited_content)
+                    validated_data = JSONValidator.validate_json_structure(edited_data)
+                    break  # Valid JSON — proceed
+
+                except (json.JSONDecodeError, VaultError) as e:
+                    print(f"\nError: {e}", file=sys.stderr)
+                    response = input("Invalid JSON. Re-open editor to fix? (y/N): ").strip().lower()
+                    if response in ('y', 'yes'):
+                        continue
+                    else:
+                        print("Edit cancelled. No changes saved.")
+                        logger.info("Edit cancelled by user after validation failure")
+                        return
+
+            # Re-encrypt and save
+            vault_manager.save_vault_file(args.file, validated_data)
+            entry_count = len(validated_data)
+            print(f"Vault saved successfully ({entry_count} {'entry' if entry_count == 1 else 'entries'}).")
+            logger.info(f"Edit completed: saved {entry_count} entries to {args.file}")
+
+        finally:
+            # Zero out the temp file before the directory is removed (belt-and-suspenders
+            # for the on-disk fallback path; harmless on RAM-backed storage)
+            if os.path.exists(tmp_path):
+                try:
+                    file_size = os.path.getsize(tmp_path)
+                    with open(tmp_path, 'r+b') as f:
+                        f.write(b'\x00' * file_size)
+                        f.flush()
+                        os.fsync(f.fileno())
+                except Exception:
+                    pass  # Best-effort overwrite
+                finally:
+                    os.unlink(tmp_path)
+                    logger.info("Temporary edit file securely removed")
 
 
 if __name__ == "__main__":
