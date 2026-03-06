@@ -95,16 +95,19 @@ If you encounter issues, consult the GitHub documentation for GPG commit signing
     python myvault.py -f vault_file.json -r --property "search_pattern"
     ```
 
-## GitHub CLI Issue Creation
-- When creating GitHub issues with the `gh issue create` command, always use the `--body-file` option to provide the issue body.
-- This prevents shell quoting errors and ensures multi-line, formatted, or code block content is handled correctly.
+## GitHub CLI Body Content
+- When providing multi-line body content to any `gh` command (`gh issue create`, `gh pr create`, `gh pr edit`, etc.), always use the `--body-file` option.
+- This prevents shell quoting errors and terminal corruption of the content.
+- **Always write body files using editor tools (e.g. `create_file`, `replace_string_in_file`), never via terminal heredocs.** The user's shell uses vi-mode (`bindkey -v`) with `sharehistory`/`INC_APPEND_HISTORY`, which corrupts heredoc content — especially lines starting with `##` or containing backticks.
 - Example workflow:
-  1. Write your issue body to a file, e.g. `issue.txt`.
+  1. Write the body to a file using an editor tool, e.g. `/tmp/body.md`.
   2. Run:
     ```bash
-    gh issue create --title "Your Issue Title" --body-file issue.txt
+    gh issue create --title "Your Issue Title" --body-file /tmp/body.md
+    gh pr create --title "Your PR Title" --body-file /tmp/body.md
+    gh pr edit 42 --body-file /tmp/body.md
     ```
-- Do not paste multi-line issue bodies directly into the shell, as this can cause quoting errors and accidental command execution.
+- Do not paste multi-line body content directly into the shell.
 - This rule applies to both manual and automated workflows.
 
 ## Performance & efficiency
@@ -115,8 +118,7 @@ If you encounter issues, consult the GitHub documentation for GPG commit signing
 
 ## Security & privacy
 - Never write or store vault passwords in the repository, logs, or error messages.
-## Security & privacy
-- Never write or store vault passwords in the repository, logs, or error messages.
+- Treat usernames, hostnames, and system-specific identifiers as sensitive — redact or replace with placeholder values (e.g. `<user>`, `<host>`) in documentation, PR descriptions, issue bodies, and examples.
 - When logging user content or responses, mask or redact sensitive vault data before persisting logs.
 - Ensure decrypted vault contents are only processed in memory and never written to disk.
 - Use secure practices when handling Ansible vault operations and credentials.
