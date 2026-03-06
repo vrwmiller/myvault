@@ -5,7 +5,7 @@
 ### Global Options
 
 ```text
-python3 myvault.py [-f VAULT_FILE] [-d] {validate,read,create,update,delete} ...
+python3 myvault.py [-f VAULT_FILE] [-d] {validate,read,create,update,delete,edit} ...
 ```
 
 **Global Arguments:**
@@ -20,6 +20,7 @@ python3 myvault.py [-f VAULT_FILE] [-d] {validate,read,create,update,delete} ...
 - `create`: Create new vault entries from JSON input
 - `update`: Update existing vault entries from JSON input
 - `delete`: Delete vault entries by property
+- `edit`: Interactively edit vault contents in a text editor
 
 ## JSON Schema
 
@@ -71,11 +72,13 @@ Reads and displays entries from an encrypted vault file.
 
 **Syntax:**
 ```bash
-python3 myvault.py -f VAULT_FILE read [--property PATTERN] [-o OUTPUT_FILE]
+python3 myvault.py -f VAULT_FILE read [--property PATTERN] [--format {pipe,json,raw}] [--field FIELD] [-o OUTPUT_FILE]
 ```
 
 **Arguments:**
 - `--property`: Property pattern to match (supports glob patterns and pipe separation)
+- `--format`: Output format — `pipe` (default), `json`, or `raw`
+- `--field`: Field name to extract; required when `--format raw`
 - `-o, --output`: Output file path for JSON export
 
 **Property Pattern Syntax:**
@@ -98,8 +101,14 @@ python3 myvault.py -f vault.json read --property "web*"
 # Read multiple patterns
 python3 myvault.py -f vault.json read --property "web*|*api*"
 
-# Export to JSON
+# Export to JSON file
 python3 myvault.py -f vault.json read --property "web*" -o results.json
+
+# Output as JSON to stdout
+python3 myvault.py -f vault.json read --property "web*" --format json
+
+# Extract a single field value per entry (one per line)
+python3 myvault.py -f vault.json read --property "web*" --format raw --field password
 ```
 
 ### create
@@ -176,11 +185,42 @@ python3 myvault.py -f vault.json delete --property "test.*" --force
 python3 myvault.py -f vault.json delete --property "*.old|temp.*" --force
 ```
 
+### edit
+
+Decrypts the vault, opens it in a text editor, validates the result, and re-encrypts on save.
+
+**Syntax:**
+```bash
+python3 myvault.py -f VAULT_FILE edit [--editor EDITOR]
+```
+
+**Arguments:**
+- `--editor`: Editor to use (overrides `$EDITOR` environment variable; defaults to `vi`)
+
+**Behavior:**
+- Decrypts vault contents to a secure temporary file
+- Opens the file in the specified editor
+- If the editor exits with a non-zero code, changes are discarded
+- Validates JSON structure after editing; prompts to retry or cancel on invalid JSON
+- Re-encrypts and saves on success
+- Temporary file is always deleted after editing
+
+**Editor resolution order:** `--editor` flag > `$EDITOR` env var > `vi`
+
+**Examples:**
+```bash
+# Edit using default editor
+python3 myvault.py -f vault.json edit
+
+# Edit using a specific editor
+python3 myvault.py -f vault.json edit --editor nano
+```
+
 ## Output Formats
 
-### Standard Output
+### pipe (default)
 
-Default output format is pipe-separated for easy parsing:
+Pipe-separated output, one entry per line:
 
 ```
 property | username | password | field1 | field2 | ...
@@ -191,9 +231,38 @@ property | username | password | field1 | field2 | ...
 website1.com | user@domain.com | secret123 | api_token_value | Additional notes
 ```
 
-### JSON Output
+### json
 
-When using `-o` flag, output is formatted as JSON array:
+When using `--format json`, a JSON array is printed to stdout:
+
+```bash
+python3 myvault.py -f vault.json read --property "web*" --format json
+```
+
+```json
+[
+    {
+        "property": "website1.com",
+        "username": "user@domain.com",
+        "password": "secret123"
+    }
+]
+```
+
+### raw
+
+When using `--format raw --field FIELD`, prints one value per matched entry to stdout — useful for shell scripting:
+
+```bash
+# Extract all passwords matching a pattern
+python3 myvault.py -f vault.json read --property "web*" --format raw --field password
+```
+
+If an entry does not contain the requested field, a warning is written to stderr and that entry is skipped in stdout.
+
+### File export (-o)
+
+When using `-o`, output is written as a JSON array to a file:
 
 ```json
 [
@@ -206,6 +275,8 @@ When using `-o` flag, output is formatted as JSON array:
     }
 ]
 ```
+
+Note: `-o` can be combined with `--property` to export a filtered subset of entries.
 
 ## Pattern Matching
 
