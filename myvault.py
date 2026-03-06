@@ -838,7 +838,7 @@ def _secure_tmpdir():
                 )
                 device = result.stdout.strip()
                 subprocess.run(
-                    ['diskutil', 'eraseVolume', 'HFS+', vol_name, device],
+                    ['diskutil', 'eraseVolume', 'APFS', vol_name, device],
                     capture_output=True, check=True
                 )
                 tmpdir = tempfile.mkdtemp(dir=f'/Volumes/{vol_name}', prefix='myvault_')

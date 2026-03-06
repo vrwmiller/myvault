@@ -1345,6 +1345,7 @@ class TestSecureTmpdir:
 
             erase_args = mock_run.call_args_list[1][0][0]
             assert erase_args[0] == 'diskutil'
+            assert 'APFS' in erase_args
             assert '/dev/disk5' in erase_args
 
             mkdtemp_dir = mock_mkdtemp.call_args[1]['dir']
