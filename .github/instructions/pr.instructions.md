@@ -63,14 +63,36 @@ Why this change is needed — reference the open issue if one exists (`Closes #N
 - [ ] Commit(s) are GPG-signed (`git log --show-signature -1`)
 
 ## Using the gh CLI
-Always use `--body-file` when creating PRs with multi-line descriptions:
+
+Always use `--body-file` when creating or editing PRs and issues with multi-line descriptions. This applies to `gh pr create`, `gh pr edit`, and `gh issue create`.
+
+### Writing the body file
+
+**Always** write the body file using a dedicated file-creation tool (not the shell). Never use shell heredocs, `echo`, `printf`, or any other shell redirection to create the file. The terminal intercept used in this environment corrupts content written through the shell — backtick-wrapped paths, filenames containing dots, and other special characters will be garbled or duplicated in the final output.
+
+Correct approach:
+1. Use the file-creation tool to write the body to a temp file such as `/tmp/pr-body.txt`
+2. Pass that file to the gh CLI
+
 ```bash
-# Write the body to a file first
+gh pr create --title "feat: description" --body-file /tmp/pr-body.txt --base main
+gh pr edit 42 --body-file /tmp/pr-body.txt
+gh issue create --title "Bug: description" --body-file /tmp/issue-body.txt
+```
+
+3. Delete the temp file after the gh command succeeds
+
+**Never** do any of the following — all will produce corrupted output:
+```bash
+# WRONG: heredoc through the shell
 cat > pr-body.txt << 'EOF'
-## Summary
 ...
 EOF
 
-gh pr create --title "feat: description" --body-file pr-body.txt --base main
+# WRONG: inline body flag with multi-line content
+gh pr create --body "## Summary
+..."
+
+# WRONG: echo/printf redirection
+echo "## Summary" > pr-body.txt
 ```
-Never paste multi-line PR bodies directly into the shell.
