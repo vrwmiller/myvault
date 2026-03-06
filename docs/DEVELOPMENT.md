@@ -47,7 +47,7 @@ python3 -m pytest tests/ --cov=myvault --cov-report=html
 - **Static analysis**: Bandit scans for common security vulnerabilities
 - **No hardcoded secrets**: All sensitive data comes from environment variables or user input
 - **Input validation**: JSON structure and file permissions are validated
-- **Memory-only processing**: Decrypted data never written to temporary files
+  - **Secure temporary files**: The `edit` command writes decrypted data to a `tempfile.mkstemp()` file (mode 600); contents are overwritten with null bytes and the file is deleted in a `finally` block before the process exits. All other commands process vault data in memory only.
 - **Comprehensive logging**: All operations logged with sensitive data redacted
 
 ### Testing Security
@@ -64,19 +64,34 @@ myvault/
 ├── myvault.py          # Main application script
 ├── environment.sh      # Development environment setup
 ├── requirements.txt    # Python dependencies
-├── run_tests.py       # Test runner
-├── tests/             # Test suite
+├── run_tests.py        # Test runner
+├── pytest.ini          # Pytest configuration
+├── LICENSE
+├── README.md
+├── tests/              # Test suite
+│   ├── __init__.py
+│   ├── conftest.py     # Shared pytest fixtures
 │   └── test_myvault.py
-├── examples/          # Example files and usage
-├── docs/              # Documentation
-│   ├── INSTALLATION.md
-│   ├── EXAMPLES.md
+├── examples/           # Example files and usage
+│   └── sample_vault.json
+├── docs/               # Documentation
+│   ├── API.md
 │   ├── DEVELOPMENT.md
-│   └── API.md
-├── .github/           # GitHub configuration
+│   ├── EXAMPLES.md
+│   └── INSTALLATION.md
+├── .github/
+│   ├── copilot-instructions.md
 │   ├── dependabot.yml
-│   └── copilot-instructions.md
-└── htmlcov/           # Test coverage reports
+│   ├── instructions/   # Copilot agent instruction files
+│   │   ├── docs.instructions.md
+│   │   ├── pr.instructions.md
+│   │   ├── security.instructions.md
+│   │   └── test.instructions.md
+│   └── workflows/
+│       ├── ci.yml      # Pytest matrix + bandit
+│       ├── codeql.yml  # CodeQL security analysis
+│       └── tests.yml   # Test workflow
+└── htmlcov/            # Test coverage reports (generated)
 ```
 
 ## Development Workflow
@@ -116,7 +131,7 @@ myvault/
 3. **Commit and push**:
    ```bash
    git add .
-   git commit -m "Description of changes"
+   git commit -S -m "Description of changes"
    git push origin feature/your-feature-name
    ```
 
