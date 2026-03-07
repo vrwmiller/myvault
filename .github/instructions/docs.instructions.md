@@ -11,6 +11,7 @@ docs/
   DEVELOPMENT.md  — Dev setup, test commands, security tooling
   EXAMPLES.md     — Usage examples with sample vault operations
   INSTALLATION.md — Prerequisites and setup steps
+  WORKFLOW.md     — Mermaid flowchart of the full runtime workflow
 ```
 
 ## Source of truth
@@ -31,6 +32,7 @@ docs/
 - When setup steps change (new dependency, new env var), update `docs/INSTALLATION.md`
 - When new test or security tooling is added, update `docs/DEVELOPMENT.md`
 - `docs/EXAMPLES.md` should show realistic end-to-end workflows, not just flag listings
+- When a command handler's logic changes in `myvault.py` (new steps, new flags, new branches), update the Mermaid flowchart in `docs/WORKFLOW.md` to match; the diagram must accurately reflect the current code
 
 ## Example format (EXAMPLES.md)
 Show a realistic scenario with setup context, then the command, then expected output:
