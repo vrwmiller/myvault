@@ -11,17 +11,18 @@ docs/
   DEVELOPMENT.md  — Dev setup, test commands, security tooling
   EXAMPLES.md     — Usage examples with sample vault operations
   INSTALLATION.md — Prerequisites and setup steps
+  WORKFLOW.md     — Mermaid flowchart of the full runtime workflow
 ```
 
 ## Source of truth
 - CLI interface and all command options are defined in `myvault.py` (`argparse` setup near end of file)
 - JSON schema: every entry requires `property` (string, non-empty); all other fields are arbitrary key/value pairs
-- Supported commands: `validate`, `read`, `create`, `update`, `delete`
+- Supported commands: `validate`, `read`, `create`, `update`, `delete`, `edit`
 - Global flags: `-f/--file` (vault file path), `-d/--debug` (console logging)
 
 ## Style conventions
 - No emojis in documentation
-- Use fenced code blocks with `bash` or `json` language tags
+- Use fenced code blocks with `bash`, `json`, or `mermaid` language tags
 - Passwords and vault contents are never shown in real form — use placeholder values like `"your_vault_password"` or `"secret123"`
 - Environment variable for vault password: `VAULT_PASSWORD` (optional — tool will prompt if unset)
 - File permission requirement for vault files: `600` (`-rw-------`)
@@ -31,6 +32,7 @@ docs/
 - When setup steps change (new dependency, new env var), update `docs/INSTALLATION.md`
 - When new test or security tooling is added, update `docs/DEVELOPMENT.md`
 - `docs/EXAMPLES.md` should show realistic end-to-end workflows, not just flag listings
+- When a command handler's logic changes in `myvault.py` (new steps, new flags, new branches), update the Mermaid flowchart in `docs/WORKFLOW.md` to match; the diagram must accurately reflect the current code
 
 ## Example format (EXAMPLES.md)
 Show a realistic scenario with setup context, then the command, then expected output:
