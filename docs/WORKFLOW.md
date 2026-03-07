@@ -20,7 +20,8 @@ flowchart TD
     Prompt interactively"]
     M7 --> M8{Input
     received?}
-    M8 -- "Empty or cancelled" --> M3
+    M8 -- "Empty" --> MPWERR([Print: password cannot be empty / Exit 1])
+    M8 -- "Ctrl-C / EOF" --> MCANCEL([Print: operation cancelled / Exit 1])
     M8 -- Yes --> M6
     M6 --> M10{Route
     command}
@@ -42,7 +43,7 @@ flowchart TD
     subgraph VSUB[validate]
         direction TB
         V1[Check input file exists] --> V2["validate_file_permissions
-        assert mode 600"]
+        no group/other bits allowed"]
         V2 --> V3[json.load file]
         V3 --> V4{JSON valid?}
         V4 -- No --> VERR([Raise VaultError])
@@ -144,9 +145,10 @@ flowchart TD
         sensitive fields masked"]
         D6 --> D7["Per-entry y/n/q
         confirmation loop"]
-        D7 --> D8["Final summary
+        D7 -- "q / quit" --> DCANCEL([Cancelled])
+        D7 -- "All entries reviewed" --> D8["Final summary
         Proceed? y/N"]
-        D8 -- "No / quit" --> DCANCEL([Cancelled])
+        D8 -- No --> DCANCEL
         D8 -- Yes --> D9["Remove entries
         reverse index order"]
         D5 -- Yes --> D9
@@ -197,7 +199,7 @@ flowchart TD
 |---|---|
 | `main()` | Entry point: parses args, loads password, routes to command handlers |
 | `setup_logging()` | Configures file logging always; adds console handler only in `--debug` mode |
-| `JSONValidator` | Validates file permissions (mode 600) and JSON structure (required `property` field) |
+| `JSONValidator` | Validates vault file permissions (owner-only access: no group/other bits) and JSON structure (required `property` field) |
 | `VaultManager` | Wraps Ansible `VaultLib` to encrypt/decrypt vault files using the provided password |
 | `match_property_expression()` | Evaluates glob patterns and pipe-separated alternatives against a property value |
 | `_secure_tmpdir()` | Context manager that provides a memory-backed (RAM disk / tmpfs) temp directory for edit operations |

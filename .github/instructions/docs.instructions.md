@@ -17,7 +17,7 @@ docs/
 ## Source of truth
 - CLI interface and all command options are defined in `myvault.py` (`argparse` setup near end of file)
 - JSON schema: every entry requires `property` (string, non-empty); all other fields are arbitrary key/value pairs
-- Supported commands: `validate`, `read`, `create`, `update`, `delete`
+- Supported commands: `validate`, `read`, `create`, `update`, `delete`, `edit`
 - Global flags: `-f/--file` (vault file path), `-d/--debug` (console logging)
 
 ## Style conventions
