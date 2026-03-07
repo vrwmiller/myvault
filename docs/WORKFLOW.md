@@ -21,7 +21,8 @@ flowchart TD
     M7 --> M8{Input
     received?}
     M8 -- "Empty" --> MPWERR([Print: password cannot be empty / Exit 1])
-    M8 -- "Ctrl-C / EOF" --> MCANCEL([Print: operation cancelled / Exit 1])
+    M8 -- "Ctrl-C" --> MCANCEL([Print: Operation cancelled by user / Exit 1])
+    M8 -- "EOF" --> MEOFERR([Print: No password input received / Exit 1])
     M8 -- Yes --> M6
     M6 --> M10{Route
     command}
@@ -54,7 +55,7 @@ flowchart TD
         V6 -- No --> VERR
         V6 -- Yes --> V7["Check duplicate properties
         Report all fields used"]
-        V7 --> V8([Print: Validation OK])
+        V7 --> V8([Print: JSON validation completed successfully!])
     end
 
     subgraph RSUB[read]

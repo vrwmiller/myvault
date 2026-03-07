@@ -22,7 +22,7 @@ docs/
 
 ## Style conventions
 - No emojis in documentation
-- Use fenced code blocks with `bash` or `json` language tags
+- Use fenced code blocks with `bash`, `json`, or `mermaid` language tags
 - Passwords and vault contents are never shown in real form — use placeholder values like `"your_vault_password"` or `"secret123"`
 - Environment variable for vault password: `VAULT_PASSWORD` (optional — tool will prompt if unset)
 - File permission requirement for vault files: `600` (`-rw-------`)
