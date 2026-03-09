@@ -6,6 +6,10 @@ on:
     paths:
       - myvault.py
 
+concurrency:
+  group: auto-tag-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   tag:
     name: Bump version and create release
