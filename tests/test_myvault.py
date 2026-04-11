@@ -1167,6 +1167,41 @@ class TestEditCommand:
 
     @patch('myvault.VaultManager')
     @patch('myvault.JSONValidator.validate_file_permissions')
+    @patch('tempfile.mkstemp')
+    def test_handle_edit_editor_nonzero_exit_but_file_modified(
+            self, mock_mkstemp, mock_validate, mock_vault_class, tmp_path, capsys):
+        """Test that a non-zero exit code is tolerated when the editor modified the file.
+
+        Reproduces the case where a vim plugin (e.g. ALE) exits with code 1 after a
+        successful :wq on a file that contains a blank field, causing the edit to be
+        discarded even though the user intended to save.
+        """
+        tmp_file = tmp_path / "myvault_edit_test.json"
+        tmp_file.write_text(json.dumps(self.SAMPLE_VAULT_DATA))
+        mock_mkstemp.return_value = (os.open(str(tmp_file), os.O_RDWR), str(tmp_file))
+
+        mock_vault = MagicMock()
+        mock_vault.load_vault_file.return_value = self.SAMPLE_VAULT_DATA
+        mock_vault_class.return_value = mock_vault
+
+        new_entry = {"property": "newsite.com", "username": "newuser", "password": "newpass"}
+        modified_data = self.SAMPLE_VAULT_DATA + [new_entry]
+
+        def editor_writes_and_exits_nonzero(cmd):
+            with open(cmd[1], 'w', encoding='utf-8', newline='\n') as f:
+                json.dump(modified_data, f, indent=2)
+            return 1  # simulates a vim plugin exiting non-zero after a clean write
+
+        args = self._make_args(editor="vi")
+        with patch('subprocess.call', side_effect=editor_writes_and_exits_nonzero):
+            myvault.handle_edit(args, "password")
+
+        mock_vault.save_vault_file.assert_called_once()
+        captured = capsys.readouterr()
+        assert "saved successfully" in captured.out
+
+    @patch('myvault.VaultManager')
+    @patch('myvault.JSONValidator.validate_file_permissions')
     @patch('builtins.input', return_value='n')
     @patch('tempfile.mkstemp')
     def test_handle_edit_invalid_json_cancel(self, mock_mkstemp, mock_input, mock_validate,

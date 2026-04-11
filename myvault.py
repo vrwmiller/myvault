@@ -891,35 +891,91 @@ def handle_edit(args, vault_password: str) -> None:
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="myvault_edit_", dir=tmpdir)
         try:
             os.chmod(tmp_path, 0o600)
-            with os.fdopen(tmp_fd, 'w', encoding='utf-8') as tmp_file:
-                json.dump(vault_data, tmp_file, indent=2, ensure_ascii=False)
-                tmp_file.write("\n")
+            # Write in binary mode with explicit LF termination so the on-disk bytes
+            # are identical to what we hash for change detection (no CRLF translation).
+            initial_bytes = (
+                json.dumps(vault_data, indent=2, ensure_ascii=False) + "\n"
+            ).encode('utf-8')
+            with os.fdopen(tmp_fd, 'wb') as tmp_file:
+                tmp_file.write(initial_bytes)
             tmp_fd = None  # fd is now closed via fdopen
+
+            # Derive the baseline hash from the bytes actually written to disk so
+            # the comparison is always accurate regardless of platform newline handling.
+            pre_hash = hashlib.sha256(initial_bytes).hexdigest()
+            del initial_bytes
 
             print(f"Opening vault in {editor}... (save and quit to apply changes, quit without saving to cancel)")
 
             while True:
+                post_content = None  # set on non-zero exit path; reused below to avoid duplicate read
+
                 # Open editor and wait for it to exit
                 exit_code = subprocess.call([editor, tmp_path])
 
                 if exit_code != 0:
-                    logger.warning(f"Editor exited with non-zero code: {exit_code}")
-                    print(f"Editor exited with code {exit_code}. Changes not saved.", file=sys.stderr)
-                    return
+                    # Some editor plugins (linters, formatters) exit with a non-zero
+                    # code even after successfully writing the file.  Check whether
+                    # the file was actually modified before deciding to abort.
+                    # Read as bytes so non-UTF-8 content from the editor never raises
+                    # UnicodeDecodeError here; the hash comparison is encoding-agnostic.
+                    try:
+                        with open(tmp_path, 'rb') as f:
+                            post_bytes = f.read()
+                        post_hash = hashlib.sha256(post_bytes).hexdigest()
+                        file_changed = post_hash != pre_hash
+                        # Decode for downstream JSON validation; keep post_content as
+                        # str so the validation block can reuse it without a second read.
+                        # A UnicodeDecodeError here means invalid UTF-8 — that will be
+                        # caught as a JSONDecodeError in the validation step.
+                        try:
+                            post_content = post_bytes.decode('utf-8')
+                        except UnicodeDecodeError:
+                            post_content = None
+                    except OSError as e:
+                        logger.warning(
+                            f"Editor exited with non-zero code: {exit_code}, "
+                            f"change detection failed ({type(e).__name__}) — aborting"
+                        )
+                        file_changed = False
 
-                # Read back and validate JSON
+                    if not file_changed:
+                        logger.warning(f"Editor exited with non-zero code: {exit_code}, file unmodified — aborting")
+                        print(f"Editor exited with code {exit_code}. Changes not saved.", file=sys.stderr)
+                        return
+
+                    logger.warning(
+                        f"Editor exited with non-zero code: {exit_code}, "
+                        "but file was modified — proceeding with validation"
+                    )
+
+                # Read back and validate JSON.  Reuse post_content when already read
+                # on the non-zero exit path to avoid a redundant file read.
                 try:
-                    with open(tmp_path, 'r', encoding='utf-8') as f:
-                        edited_content = f.read()
+                    if post_content is not None:
+                        edited_content = post_content
+                        post_content = None
+                    else:
+                        with open(tmp_path, 'rb') as f:
+                            edited_content = f.read().decode('utf-8')
 
                     edited_data = json.loads(edited_content)
                     validated_data = JSONValidator.validate_json_structure(edited_data)
                     break  # Valid JSON — proceed
 
-                except (json.JSONDecodeError, VaultError) as e:
+                except (json.JSONDecodeError, UnicodeDecodeError, VaultError) as e:
                     print(f"\nError: {e}", file=sys.stderr)
                     response = input("Invalid JSON. Re-open editor to fix? (y/N): ").strip().lower()
                     if response in ('y', 'yes'):
+                        # Update the baseline so the next iteration compares against
+                        # what the editor last wrote, not the original vault content.
+                        # If edited_content is not set (e.g. UnicodeDecodeError before
+                        # assignment), re-hash from disk bytes so the baseline is correct.
+                        try:
+                            with open(tmp_path, 'rb') as f:
+                                pre_hash = hashlib.sha256(f.read()).hexdigest()
+                        except OSError:
+                            pass
                         continue
                     else:
                         print("Edit cancelled. No changes saved.")
