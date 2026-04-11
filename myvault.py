@@ -899,11 +899,15 @@ def handle_edit(args, vault_password: str) -> None:
             print(f"Opening vault in {editor}... (save and quit to apply changes, quit without saving to cancel)")
 
             while True:
-                # Capture a baseline immediately before each editor invocation so
-                # that change-detection reflects *this* session's edits, not the
-                # state from a prior iteration (e.g. after a JSON-validation retry).
-                with open(tmp_path, 'r', encoding='utf-8') as f:
-                    original_content = f.read()
+                # Take a cheap stat-based snapshot (size + mtime_ns) immediately
+                # before each editor invocation.  Full content is only read on the
+                # normal validation path below; this avoids an extra full-file read
+                # on every successful (exit 0) iteration.
+                try:
+                    pre_stat = os.stat(tmp_path)
+                    pre_key = (pre_stat.st_size, pre_stat.st_mtime_ns)
+                except OSError:
+                    pre_key = None
 
                 # Open editor and wait for it to exit
                 exit_code = subprocess.call([editor, tmp_path])
@@ -912,13 +916,16 @@ def handle_edit(args, vault_password: str) -> None:
                     # Some editor plugins (linters, formatters) exit with a non-zero
                     # code even after successfully writing the file.  Check whether
                     # the file was actually modified before deciding to abort.
-                    try:
-                        with open(tmp_path, 'r', encoding='utf-8') as f:
-                            current_content = f.read()
-                    except OSError:
-                        current_content = original_content
+                    file_changed = False
+                    if pre_key is not None:
+                        try:
+                            post_stat = os.stat(tmp_path)
+                            post_key = (post_stat.st_size, post_stat.st_mtime_ns)
+                            file_changed = post_key != pre_key
+                        except OSError:
+                            pass
 
-                    if current_content == original_content:
+                    if not file_changed:
                         logger.warning(f"Editor exited with non-zero code: {exit_code}, file unmodified — aborting")
                         print(f"Editor exited with code {exit_code}. Changes not saved.", file=sys.stderr)
                         return
