@@ -917,11 +917,21 @@ def handle_edit(args, vault_password: str) -> None:
                     # Some editor plugins (linters, formatters) exit with a non-zero
                     # code even after successfully writing the file.  Check whether
                     # the file was actually modified before deciding to abort.
+                    # Read as bytes so non-UTF-8 content from the editor never raises
+                    # UnicodeDecodeError here; the hash comparison is encoding-agnostic.
                     try:
-                        with open(tmp_path, 'r', encoding='utf-8') as f:
-                            post_content = f.read()
-                        post_hash = hashlib.sha256(post_content.encode('utf-8')).hexdigest()
+                        with open(tmp_path, 'rb') as f:
+                            post_bytes = f.read()
+                        post_hash = hashlib.sha256(post_bytes).hexdigest()
                         file_changed = post_hash != pre_hash
+                        # Decode for downstream JSON validation; keep post_content as
+                        # str so the validation block can reuse it without a second read.
+                        # A UnicodeDecodeError here means invalid UTF-8 — that will be
+                        # caught as a JSONDecodeError in the validation step.
+                        try:
+                            post_content = post_bytes.decode('utf-8')
+                        except UnicodeDecodeError:
+                            post_content = None
                     except OSError as e:
                         logger.warning(
                             f"Editor exited with non-zero code: {exit_code}, "
