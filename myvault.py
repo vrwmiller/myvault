@@ -896,6 +896,10 @@ def handle_edit(args, vault_password: str) -> None:
                 tmp_file.write("\n")
             tmp_fd = None  # fd is now closed via fdopen
 
+            # Capture original content as a baseline for change detection
+            with open(tmp_path, 'r', encoding='utf-8') as f:
+                original_content = f.read()
+
             print(f"Opening vault in {editor}... (save and quit to apply changes, quit without saving to cancel)")
 
             while True:
@@ -903,9 +907,24 @@ def handle_edit(args, vault_password: str) -> None:
                 exit_code = subprocess.call([editor, tmp_path])
 
                 if exit_code != 0:
-                    logger.warning(f"Editor exited with non-zero code: {exit_code}")
-                    print(f"Editor exited with code {exit_code}. Changes not saved.", file=sys.stderr)
-                    return
+                    # Some editor plugins (linters, formatters) exit with a non-zero
+                    # code even after successfully writing the file.  Check whether
+                    # the file was actually modified before deciding to abort.
+                    try:
+                        with open(tmp_path, 'r', encoding='utf-8') as f:
+                            current_content = f.read()
+                    except OSError:
+                        current_content = original_content
+
+                    if current_content == original_content:
+                        logger.warning(f"Editor exited with non-zero code: {exit_code}, file unmodified — aborting")
+                        print(f"Editor exited with code {exit_code}. Changes not saved.", file=sys.stderr)
+                        return
+
+                    logger.warning(
+                        f"Editor exited with non-zero code: {exit_code}, "
+                        "but file was modified — proceeding with validation"
+                    )
 
                 # Read back and validate JSON
                 try:
