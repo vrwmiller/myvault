@@ -896,19 +896,18 @@ def handle_edit(args, vault_password: str) -> None:
                 tmp_file.write("\n")
             tmp_fd = None  # fd is now closed via fdopen
 
+            # Compute a content hash of the bytes written to the temp file.  This
+            # serves as the per-iteration baseline for change detection without
+            # requiring an extra file read on the normal (exit 0) path.
+            initial_bytes = (
+                json.dumps(vault_data, indent=2, ensure_ascii=False) + "\n"
+            ).encode('utf-8')
+            pre_hash = hashlib.sha256(initial_bytes).hexdigest()
+            del initial_bytes
+
             print(f"Opening vault in {editor}... (save and quit to apply changes, quit without saving to cancel)")
 
             while True:
-                # Take a cheap stat-based snapshot (size + mtime_ns) immediately
-                # before each editor invocation.  Full content is only read on the
-                # normal validation path below; this avoids an extra full-file read
-                # on every successful (exit 0) iteration.
-                try:
-                    pre_stat = os.stat(tmp_path)
-                    pre_key = (pre_stat.st_size, pre_stat.st_mtime_ns)
-                except OSError:
-                    pre_key = None
-
                 # Open editor and wait for it to exit
                 exit_code = subprocess.call([editor, tmp_path])
 
@@ -916,14 +915,13 @@ def handle_edit(args, vault_password: str) -> None:
                     # Some editor plugins (linters, formatters) exit with a non-zero
                     # code even after successfully writing the file.  Check whether
                     # the file was actually modified before deciding to abort.
-                    file_changed = False
-                    if pre_key is not None:
-                        try:
-                            post_stat = os.stat(tmp_path)
-                            post_key = (post_stat.st_size, post_stat.st_mtime_ns)
-                            file_changed = post_key != pre_key
-                        except OSError:
-                            pass
+                    try:
+                        with open(tmp_path, 'r', encoding='utf-8') as f:
+                            post_content = f.read()
+                        post_hash = hashlib.sha256(post_content.encode('utf-8')).hexdigest()
+                        file_changed = post_hash != pre_hash
+                    except OSError:
+                        file_changed = False
 
                     if not file_changed:
                         logger.warning(f"Editor exited with non-zero code: {exit_code}, file unmodified — aborting")
@@ -948,6 +946,9 @@ def handle_edit(args, vault_password: str) -> None:
                     print(f"\nError: {e}", file=sys.stderr)
                     response = input("Invalid JSON. Re-open editor to fix? (y/N): ").strip().lower()
                     if response in ('y', 'yes'):
+                        # Update the baseline so the next iteration compares against
+                        # what the editor last wrote, not the original vault content.
+                        pre_hash = hashlib.sha256(edited_content.encode('utf-8')).hexdigest()
                         continue
                     else:
                         print("Edit cancelled. No changes saved.")
