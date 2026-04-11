@@ -891,17 +891,17 @@ def handle_edit(args, vault_password: str) -> None:
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="myvault_edit_", dir=tmpdir)
         try:
             os.chmod(tmp_path, 0o600)
-            with os.fdopen(tmp_fd, 'w', encoding='utf-8') as tmp_file:
-                json.dump(vault_data, tmp_file, indent=2, ensure_ascii=False)
-                tmp_file.write("\n")
-            tmp_fd = None  # fd is now closed via fdopen
-
-            # Compute a content hash of the bytes written to the temp file.  This
-            # serves as the per-iteration baseline for change detection without
-            # requiring an extra file read on the normal (exit 0) path.
+            # Write in binary mode with explicit LF termination so the on-disk bytes
+            # are identical to what we hash for change detection (no CRLF translation).
             initial_bytes = (
                 json.dumps(vault_data, indent=2, ensure_ascii=False) + "\n"
             ).encode('utf-8')
+            with os.fdopen(tmp_fd, 'wb') as tmp_file:
+                tmp_file.write(initial_bytes)
+            tmp_fd = None  # fd is now closed via fdopen
+
+            # Derive the baseline hash from the bytes actually written to disk so
+            # the comparison is always accurate regardless of platform newline handling.
             pre_hash = hashlib.sha256(initial_bytes).hexdigest()
             del initial_bytes
 
