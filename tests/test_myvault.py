@@ -1188,7 +1188,7 @@ class TestEditCommand:
         modified_data = self.SAMPLE_VAULT_DATA + [new_entry]
 
         def editor_writes_and_exits_nonzero(cmd):
-            with open(cmd[1], 'w') as f:
+            with open(cmd[1], 'w', encoding='utf-8', newline='\n') as f:
                 json.dump(modified_data, f, indent=2)
             return 1  # simulates a vim plugin exiting non-zero after a clean write
 

@@ -908,6 +908,8 @@ def handle_edit(args, vault_password: str) -> None:
             print(f"Opening vault in {editor}... (save and quit to apply changes, quit without saving to cancel)")
 
             while True:
+                post_content = None  # set on non-zero exit path; reused below to avoid duplicate read
+
                 # Open editor and wait for it to exit
                 exit_code = subprocess.call([editor, tmp_path])
 
@@ -920,7 +922,11 @@ def handle_edit(args, vault_password: str) -> None:
                             post_content = f.read()
                         post_hash = hashlib.sha256(post_content.encode('utf-8')).hexdigest()
                         file_changed = post_hash != pre_hash
-                    except OSError:
+                    except OSError as e:
+                        logger.warning(
+                            f"Editor exited with non-zero code: {exit_code}, "
+                            f"change detection failed ({type(e).__name__}) — aborting"
+                        )
                         file_changed = False
 
                     if not file_changed:
@@ -933,10 +939,15 @@ def handle_edit(args, vault_password: str) -> None:
                         "but file was modified — proceeding with validation"
                     )
 
-                # Read back and validate JSON
+                # Read back and validate JSON.  Reuse post_content when already read
+                # on the non-zero exit path to avoid a redundant file read.
                 try:
-                    with open(tmp_path, 'r', encoding='utf-8') as f:
-                        edited_content = f.read()
+                    if post_content is not None:
+                        edited_content = post_content
+                        post_content = None
+                    else:
+                        with open(tmp_path, 'r', encoding='utf-8') as f:
+                            edited_content = f.read()
 
                     edited_data = json.loads(edited_content)
                     validated_data = JSONValidator.validate_json_structure(edited_data)
