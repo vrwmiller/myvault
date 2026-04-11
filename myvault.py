@@ -896,13 +896,15 @@ def handle_edit(args, vault_password: str) -> None:
                 tmp_file.write("\n")
             tmp_fd = None  # fd is now closed via fdopen
 
-            # Capture original content as a baseline for change detection
-            with open(tmp_path, 'r', encoding='utf-8') as f:
-                original_content = f.read()
-
             print(f"Opening vault in {editor}... (save and quit to apply changes, quit without saving to cancel)")
 
             while True:
+                # Capture a baseline immediately before each editor invocation so
+                # that change-detection reflects *this* session's edits, not the
+                # state from a prior iteration (e.g. after a JSON-validation retry).
+                with open(tmp_path, 'r', encoding='utf-8') as f:
+                    original_content = f.read()
+
                 # Open editor and wait for it to exit
                 exit_code = subprocess.call([editor, tmp_path])
 
