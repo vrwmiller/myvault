@@ -956,20 +956,26 @@ def handle_edit(args, vault_password: str) -> None:
                         edited_content = post_content
                         post_content = None
                     else:
-                        with open(tmp_path, 'r', encoding='utf-8') as f:
-                            edited_content = f.read()
+                        with open(tmp_path, 'rb') as f:
+                            edited_content = f.read().decode('utf-8')
 
                     edited_data = json.loads(edited_content)
                     validated_data = JSONValidator.validate_json_structure(edited_data)
                     break  # Valid JSON — proceed
 
-                except (json.JSONDecodeError, VaultError) as e:
+                except (json.JSONDecodeError, UnicodeDecodeError, VaultError) as e:
                     print(f"\nError: {e}", file=sys.stderr)
                     response = input("Invalid JSON. Re-open editor to fix? (y/N): ").strip().lower()
                     if response in ('y', 'yes'):
                         # Update the baseline so the next iteration compares against
                         # what the editor last wrote, not the original vault content.
-                        pre_hash = hashlib.sha256(edited_content.encode('utf-8')).hexdigest()
+                        # If edited_content is not set (e.g. UnicodeDecodeError before
+                        # assignment), re-hash from disk bytes so the baseline is correct.
+                        try:
+                            with open(tmp_path, 'rb') as f:
+                                pre_hash = hashlib.sha256(f.read()).hexdigest()
+                        except OSError:
+                            pass
                         continue
                     else:
                         print("Edit cancelled. No changes saved.")
