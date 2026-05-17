@@ -42,7 +42,7 @@ find_suitable_python() {
 
 # Check if virtual environment exists, creating it with the best available Python
 PYTHON_BIN="$(find_suitable_python)" || return 1
-[ -d "$PROJECT_ROOT/venv" ] || "$PYTHON_BIN" -m venv venv
+[ -d "$PROJECT_ROOT/venv" ] || "$PYTHON_BIN" -m venv "$PROJECT_ROOT/venv"
 
 # Deactivate any existing virtual environment
 if [ -n "$VIRTUAL_ENV" ]; then
