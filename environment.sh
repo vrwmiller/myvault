@@ -11,8 +11,40 @@ PROJECT_ROOT="$SCRIPT_DIR"
 
 echo "Setting up MyVault development environment..."
 
-# Check if virtual environment exists
-[ -d "$PROJECT_ROOT/venv" ] || python3 -m venv venv
+# Minimum Python version required (update only when project requirements change)
+MIN_PYTHON_VERSION="3.12"
+
+# Find the newest installed Python that meets the minimum version requirement.
+# Scans python3.X (X = 30..MIN_MINOR) so new releases are picked up automatically.
+find_suitable_python() {
+    local min_major min_minor
+    min_major=$(echo "$MIN_PYTHON_VERSION" | cut -d. -f1)
+    min_minor=$(echo "$MIN_PYTHON_VERSION" | cut -d. -f2)
+
+    for minor in $(seq 30 -1 "$min_minor"); do
+        local candidate="${min_major}.${minor}"
+        if command -v "python${candidate}" &>/dev/null; then
+            echo "python${candidate}"
+            return 0
+        fi
+    done
+
+    # Fall back to generic python3 if it satisfies the minimum
+    if command -v python3 &>/dev/null && \
+       python3 -c "import sys; sys.exit(0 if sys.version_info >= ($min_major, $min_minor) else 1)" 2>/dev/null; then
+        echo "python3"
+        return 0
+    fi
+
+    echo "Error: Python >= $MIN_PYTHON_VERSION not found. Install Python >= $MIN_PYTHON_VERSION and ensure it is available on PATH." >&2
+    return 1
+}
+
+# Check if virtual environment exists, creating it with the best available Python
+if [ ! -d "$PROJECT_ROOT/venv" ]; then
+    PYTHON_BIN="$(find_suitable_python)" || return 1
+    "$PYTHON_BIN" -m venv "$PROJECT_ROOT/venv" || return 1
+fi
 
 # Deactivate any existing virtual environment
 if [ -n "$VIRTUAL_ENV" ]; then
