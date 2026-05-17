@@ -36,7 +36,7 @@ find_suitable_python() {
         return 0
     fi
 
-    echo "Error: Python >= $MIN_PYTHON_VERSION not found. Install via: brew install python@3.13" >&2
+    echo "Error: Python >= $MIN_PYTHON_VERSION not found. Install Python >= $MIN_PYTHON_VERSION and ensure it is available on PATH." >&2
     return 1
 }
 
