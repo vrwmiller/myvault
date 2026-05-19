@@ -3,24 +3,28 @@ agent: agent
 description: Review all PR comments for this repository, validate each claim against project docs and changed files, fix valid issues, and post concise replies. Use MyVault's documentation and instruction files as authoritative sources.
 ---
 
+
 Follow these steps exactly.
 
-1. Identify PR context.
-- Run gh pr view --json number,headRefName.
-- If there is no open PR for the current branch, stop and report that state.
 
-- List changed files from the PR.
-- Read each changed file in full.
-- Read relevant docs from this repository:
-  - docs/API.md
-  - docs/DEVELOPMENT.md
-  - docs/EXAMPLES.md
-  - docs/INSTALLATION.md
-  - docs/WORKFLOW.md
-- Read relevant instruction files from .github/instructions based on touched files:
-  - .github/instructions/pr.instructions.md
-  - .github/instructions/security.instructions.md
-  - .github/instructions/test.instructions.md
+1. Identify PR context.
+   - Run gh pr view --json number,headRefName.
+   - If there is no open PR for the current branch, stop and report that state.
+
+2. Gather authoritative context for this project.
+   - List changed files from the PR.
+   - Read each changed file in full.
+   - Read relevant docs from this repository:
+     - docs/API.md
+     - docs/DEVELOPMENT.md
+     - docs/EXAMPLES.md
+     - docs/INSTALLATION.md
+     - docs/WORKFLOW.md
+   - Read relevant instruction files from .github/instructions based on touched files:
+     - .github/instructions/pr.instructions.md
+     - .github/instructions/security.instructions.md
+     - .github/instructions/test.instructions.md
+     - .github/instructions/docs.instructions.md (if any docs/** files are changed)
 
 3. Fetch all review comments.
 - Top-level PR comments: gh pr view <number> --comments
@@ -37,30 +41,27 @@ For docs-only PRs, additionally reject:
   - Defensive code improvements in scripts where the failure mode requires conditions not documented or plausible for this project
   - Suggestions that duplicate information already present elsewhere in the same document
 
-5. Process valid comments in small batches.
-- Apply focused fixes.
-- Verify each change in files.
-- Commit per batch with clear message.
-- If detect-secrets updates .secrets.baseline metadata, stage it and retry commit.
-- Reply to each comment with concise factual status.
-- Reply URL form: `repos/{owner}/{repo}/pulls/{pr_number}/comments/{comment_id}/replies`
-  — the PR number is REQUIRED before `comments`; omitting it returns 404.
-  — use `--input /tmp/<file>.json` (never `-f body=`); delete the temp file after success.
+   - Apply focused fixes.
+   - Verify each change in files.
+   - Commit per batch with clear message.
+   - Reply to each comment with concise factual status.
+   - Reply URL form: `repos/{owner}/{repo}/pulls/{pr_number}/comments/{comment_id}/replies`
+     — the PR number is REQUIRED before `comments`; omitting it returns 404.
+     — use `--input /tmp/<file>.json` (never `-f body=`); delete the temp file after success.
 
 6. Keep docs in sync.
 - If fixes alter contracts, schema, workflow, or security behavior, update docs in same pass.
 
 7. Run quality and security gates.
-- Run lint/test checks for touched scope.
-- Perform security-focused review for sensitive files.
-- Address high-severity issues before push.
-- For Terraform files: classify any exposure of plaintext credentials or tokens in Terraform state as a high-severity security finding.
-- Block changes that introduce plaintext credential or token material into Terraform state, even if detect-secrets passes.
-- If touched changes include executable behavior and a unit test is reasonably possible, require that test in the same PR.
-- If such a test is missing, classify as a blocking finding.
-- Deferral is allowed only with explicit rationale and a linked follow-up issue.
-- Pure docs/process/license-only changes are exempt from this unit test requirement.
-- If lint or unit test targets are unavailable for touched scope, record this explicitly as a finding/testing gap (do not silently pass gates).
+  - Run lint/test checks for touched scope.
+  - Perform security-focused review for sensitive files.
+  - Address high-severity issues before push.
+  - For Python files: run bandit for static analysis (see .github/instructions/security.instructions.md).
+  - If touched changes include executable behavior and a unit test is reasonably possible, require that test in the same PR.
+  - If such a test is missing, classify as a blocking finding.
+  - Deferral is allowed only with explicit rationale and a linked follow-up issue.
+  - Pure docs/process/license-only changes are exempt from this unit test requirement.
+  - If lint or unit test targets are unavailable for touched scope, record this explicitly as a finding/testing gap (do not silently pass gates).
 
 8. Push and resolve threads.
 - Push once all batches and checks are complete.
