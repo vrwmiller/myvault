@@ -8,49 +8,49 @@ Follow these steps exactly.
 
 
 1. Identify PR context.
-   - Run gh pr view --json number,headRefName.
-   - If there is no open PR for the current branch, stop and report that state.
+  - Run gh pr view --json number,headRefName.
+  - If there is no open PR for the current branch, stop and report that state.
 
 2. Gather authoritative context for this project.
-   - List changed files from the PR.
-   - Read each changed file in full.
-   - Read relevant docs from this repository:
-     - docs/API.md
-     - docs/DEVELOPMENT.md
-     - docs/EXAMPLES.md
-     - docs/INSTALLATION.md
-     - docs/WORKFLOW.md
-   - Read relevant instruction files from .github/instructions based on touched files:
-     - .github/instructions/pr.instructions.md
-     - .github/instructions/security.instructions.md
-     - .github/instructions/test.instructions.md
-     - .github/instructions/docs.instructions.md (if any docs/** files are changed)
+  - List changed files from the PR.
+  - Read each changed file in full.
+  - Read relevant docs from this repository:
+    - docs/API.md
+    - docs/DEVELOPMENT.md
+    - docs/EXAMPLES.md
+    - docs/INSTALLATION.md
+    - docs/WORKFLOW.md
+  - Read relevant instruction files from .github/instructions based on touched files:
+    - .github/instructions/pr.instructions.md
+    - .github/instructions/security.instructions.md
+    - .github/instructions/test.instructions.md
+    - .github/instructions/docs.instructions.md (if any docs/** files are changed)
 
 3. Fetch all review comments.
-- Top-level PR comments: gh pr view <number> --comments
-- Inline comments: gh api --paginate repos/<owner>/<repo>/pulls/<number>/comments
-- Build comment-id to thread-id mapping using GraphQL reviewThreads pagination.
+  - Top-level PR comments: gh pr view <number> --comments
+  - Inline comments: gh api --paginate repos/<owner>/<repo>/pulls/<number>/comments
+  - Build comment-id to thread-id mapping using GraphQL reviewThreads pagination.
 
 4. Classify every comment.
-- Valid: the claim is accurate AND the fix prevents a realistic failure — a wrong result, a broken command, data loss, a security breach, or an operator being blocked from completing the procedure. The bar is "would a careful operator fail without this fix?"
-- Rejected: claim is factually wrong, contradicts current code or documented project decisions, OR is technically accurate but does not prevent a realistic operator failure (e.g. wording preferences, hypothetical edge cases in manually-executed runbooks, style inconsistencies, defensive improvements without a demonstrated failure path).
-- Ambiguous: cannot be resolved from available evidence; pause and ask user.
+  - Valid: the claim is accurate AND the fix prevents a realistic failure — a wrong result, a broken command, data loss, a security breach, or an operator being blocked from completing the procedure. The bar is "would a careful operator fail without this fix?"
+  - Rejected: claim is factually wrong, contradicts current code or documented project decisions, OR is technically accurate but does not prevent a realistic operator failure (e.g. wording preferences, hypothetical edge cases in manually-executed runbooks, style inconsistencies, defensive improvements without a demonstrated failure path).
+  - Ambiguous: cannot be resolved from available evidence; pause and ask user.
 
 For docs-only PRs, additionally reject:
   - Observations about prose style or word choice where the current wording is unambiguous in context
   - Defensive code improvements in scripts where the failure mode requires conditions not documented or plausible for this project
   - Suggestions that duplicate information already present elsewhere in the same document
 
-   - Apply focused fixes.
-   - Verify each change in files.
-   - Commit per batch with clear message.
-   - Reply to each comment with concise factual status.
-   - Reply URL form: `repos/{owner}/{repo}/pulls/{pr_number}/comments/{comment_id}/replies`
-     — the PR number is REQUIRED before `comments`; omitting it returns 404.
-     — use `--input /tmp/<file>.json` (never `-f body=`); delete the temp file after success.
+  - Apply focused fixes.
+  - Verify each change in files.
+  - Commit per batch with clear message.
+  - Reply to each comment with concise factual status.
+  - Reply URL form: `repos/{owner}/{repo}/pulls/{pr_number}/comments/{comment_id}/replies`
+    — the PR number is REQUIRED before `comments`; omitting it returns 404.
+    — use `--input /tmp/<file>.json` (never `-f body=`); delete the temp file after success.
 
 6. Keep docs in sync.
-- If fixes alter contracts, schema, workflow, or security behavior, update docs in same pass.
+  - If fixes alter contracts, schema, workflow, or security behavior, update docs in same pass.
 
 7. Run quality and security gates.
   - Run lint/test checks for touched scope.
@@ -64,16 +64,16 @@ For docs-only PRs, additionally reject:
   - If lint or unit test targets are unavailable for touched scope, record this explicitly as a finding/testing gap (do not silently pass gates).
 
 8. Push and resolve threads.
-- Push once all batches and checks are complete.
-- Resolve threads for fixed or rejected comments using thread IDs.
+  - Push once all batches and checks are complete.
+  - Resolve threads for fixed or rejected comments using thread IDs.
 
 9. Request re-review.
-- Tell user all threads are resolved.
-- If any commits were made during this review pass, run `gh pr edit <number> --add-reviewer @copilot` to trigger a new Copilot reviewer pass.
-- If no commits were made (all comments were rejected or already addressed), do not re-request — inform the user instead.
+  - Tell user all threads are resolved.
+  - If any commits were made during this review pass, run `gh pr edit <number> --add-reviewer @copilot` to trigger a new Copilot reviewer pass.
+  - If no commits were made (all comments were rejected or already addressed), do not re-request — inform the user instead.
 
 Response style requirements:
-- Findings first, ordered by severity.
-- Include file references and concise rationale.
-- If no findings, state that explicitly and mention residual risks/testing gaps.
-- Always include a concise gate status line for touched scope: lint `passed|failed|not-available`; tests `passed|failed|not-available`.
+  - Findings first, ordered by severity.
+  - Include file references and concise rationale.
+  - If no findings, state that explicitly and mention residual risks/testing gaps.
+  - Always include a concise gate status line for touched scope: lint `passed|failed|not-available`; tests `passed|failed|not-available`.
