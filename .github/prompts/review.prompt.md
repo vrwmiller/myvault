@@ -36,18 +36,18 @@ Follow these steps exactly.
   - Rejected: claim is factually wrong, contradicts current code or documented project decisions, OR is technically accurate but does not prevent a realistic operator failure (e.g. wording preferences, hypothetical edge cases in manually-executed runbooks, style inconsistencies, defensive improvements without a demonstrated failure path).
   - Ambiguous: cannot be resolved from available evidence; pause and ask user.
 
-For docs-only PRs, additionally reject:
-  - Observations about prose style or word choice where the current wording is unambiguous in context
-  - Defensive code improvements in scripts where the failure mode requires conditions not documented or plausible for this project
-  - Suggestions that duplicate information already present elsewhere in the same document
+  For docs-only PRs, additionally reject:
+    - Observations about prose style or word choice where the current wording is unambiguous in context
+    - Defensive code improvements in scripts where the failure mode requires conditions not documented or plausible for this project
+    - Suggestions that duplicate information already present elsewhere in the same document
 
-  - Apply focused fixes.
-  - Verify each change in files.
-  - Commit per batch with clear message.
-  - Reply to each comment with concise factual status.
-  - Reply URL form: `repos/{owner}/{repo}/pulls/{pr_number}/comments/{comment_id}/replies`
-    — the PR number is REQUIRED before `comments`; omitting it returns 404.
-    — use `--input /tmp/<file>.json` (never `-f body=`); delete the temp file after success.
+    - Apply focused fixes.
+    - Verify each change in files.
+    - Commit per batch with clear message.
+    - Reply to each comment with concise factual status.
+    - Reply URL form: `repos/{owner}/{repo}/pulls/{pr_number}/comments/{comment_id}/replies`
+      — the PR number is REQUIRED before `comments`; omitting it returns 404.
+      — use `--input /tmp/<file>.json` (never `-f body=`); delete the temp file after success.
 
 6. Keep docs in sync.
   - If fixes alter contracts, schema, workflow, or security behavior, update docs in same pass.
