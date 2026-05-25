@@ -1,4 +1,4 @@
-ansible>=13.6.0
+ansible>=13.7.0
 pytest>=9.0.3
 pytest-cov>=7.1.0
 bandit>=1.9.4
